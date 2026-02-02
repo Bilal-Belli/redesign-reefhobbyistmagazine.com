@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Magazines</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container py-5">
+  <h2>Magazines</h2>
+  <div id="cards" class="row"></div>
+</div>
+
+<script>
+fetch("/api/magazines").then(r=>r.json()).then(list=>{
+  const root = document.getElementById("cards");
+  list.forEach(m=>{
+    const col = document.createElement("div");
+    col.className="col-md-4 mb-4";
+    col.innerHTML=`
+      <div class="card h-100 shadow-sm">
+        <img src="${m.cover}" class="card-img-top">
+        <div class="card-body">
+          <h5>${m.title}</h5>
+          <a href="/flipbook/${m.id}" class="btn btn-outline-primary">Open</a>
+        </div>
+      </div>
+    `;
+    root.appendChild(col);
+  });
+});
+</script>
+</body>
+</html>
