@@ -5,3 +5,7 @@ node_modules/
 data/
 
 uploads/
+
+public/products/
+public/img/
+public/covers/
