@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>Reef Clubs</title>
+    <link rel="icon" type="image/png" href="/img/favicon.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./style/clubs.css">
+  </head>
+
+  <body>
+    <!-- ================= NAVBAR ================= -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-black">
+      <div class="container">
+        <a class="navbar-brand" href="/"><img src="./img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+        <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div id="nav" class="collapse navbar-collapse">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="/archive">Archive</a></li>
+            <li class="nav-item"><a class="nav-link" href="/clubs">REEF Clubs</a></li>
+            <li class="nav-item"><a class="nav-link" href="/advertisers">Advertisers</a></li>
+            <li class="nav-item"><a class="nav-link" target="_blank"
+                href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+                Us</a></li>
+            <li class="nav-item"><a class="nav-link" href="/subscribe">Subscribe</a></li>
+            <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <!-- ================= SPONSORS ================= -->
+    <section class="banner py-4 bg-light">
+      <div class="container position-relative">
+        <div class="swiper">
+          <div class="swiper-wrapper" id="sponsorSlides"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= REEFCLUB LIST ================= -->
+    <div class="container-fluid px-4 py-4">
+      <div class="container py-4">
+        <h2 class="mb-4 text-center">RHM Sponsored Reef Clubs</h2>
+        <p class="w-100">Reef Hobbyist Magazine is proud to sponsor MASNA affiliated clubs and their events. If your
+          MASNA affiliated club would like to receive magazines for your meetings and/or events, please contact us for
+          details. We can also help publicize your frag swaps and reef conferences through our print and digital
+          magazine, Facebook page, and website to help you maximize attendance and success.</p>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+              <tr>
+                <th>Club</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Website</th>
+              </tr>
+            </thead>
+            <tbody id="reefTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- ================= FOOTER ================= -->
+    <footer>
+      <div class="container text-center">
+        <p>All Rights Reserved. Copyright ©
+          <script>document.write(new Date().getFullYear())</script> Reef Hobbyist Magazine
+        </p>
+        <p>
+          <a href="/advertisers">Advertisers</a> ·
+          <a href="/subscribe">Subscribe</a> ·
+          <a target="_blank"
+            href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+            Us</a>
+        </p>
+      </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./js/sponsorsSwiper.js"></script>
+    <script src="./js/auth.js"></script>
+    <script>
+      const table = document.getElementById("reefTable");
+      function formatWebsiteLink(url) {
+        if (!url) return '#';
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          return url;
+        }
+        return `https://${url}`;
+      }
+      async function loadReefclubs() {
+        const res = await fetch("/api/reefclubs");
+        const list = await res.json();
+        table.innerHTML = "";
+        list.forEach(c => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${c.title}</td>
+            <td>${c.city}</td>
+            <td>${c.state}</td>
+            <td><a href="${formatWebsiteLink(c.website)}" target="_blank">${c.website}</a></td>
+          `;
+          table.appendChild(tr);
+        });
+      }
+      loadReefclubs();
+    </script>
+  </body>
+
+</html>

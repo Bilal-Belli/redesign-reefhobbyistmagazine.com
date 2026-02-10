@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>Advertisers</title>
+    <link rel="icon" type="image/png" href="/img/favicon.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/style/advertisers.css" />
+  </head>
+
+  <body class="bg-light d-flex flex-column min-vh-100">
+    <main class="flex-grow-1">
+      <!-- ================= NAVBAR ================= -->
+      <nav class="navbar navbar-expand-lg navbar-dark bg-black">
+        <div class="container">
+          <a class="navbar-brand" href="/"><img src="./img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+          <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div id="nav" class="collapse navbar-collapse">
+            <ul class="navbar-nav ms-auto">
+              <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
+              <li class="nav-item"><a class="nav-link" href="/archive">Archive</a></li>
+              <li class="nav-item"><a class="nav-link" href="/clubs">REEF Clubs</a></li>
+              <li class="nav-item"><a class="nav-link" href="/advertisers">Advertisers</a></li>
+              <li class="nav-item"><a class="nav-link" target="_blank"
+                  href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+                  Us</a></li>
+              <li class="nav-item"><a class="nav-link" href="/subscribe">Subscribe</a></li>
+              <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <!-- CONTENT -->
+      <div class="container py-4">
+        <h2 class="mb-4 text-center">Our Advertisers</h2>
+        <p>Reef Hobbyist Magazine is made available for free in over 1,000 local fish stores and online by our advertisers. Please let these companies know that you see their ads in RHM and appreciate their sponsorship of free content.</p>
+        <div id="advGrid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-4">
+          <!-- Logo cards injected here -->
+        </div>
+      </div>
+    </main>
+
+    <!-- ================= FOOTER ================= -->
+    <footer>
+      <div class="container text-center">
+        <p>All Rights Reserved. Copyright ©
+          <script>document.write(new Date().getFullYear())</script> Reef Hobbyist Magazine
+        </p>
+        <p>
+          <a href="/advertisers">Advertisers</a> ·
+          <a href="/subscribe">Subscribe</a> ·
+          <a target="_blank"
+            href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+            Us</a>
+        </p>
+      </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="./js/sponsorsSwiper.js"></script>
+    <script src="./js/auth.js"></script>
+    <script>
+      const grid = document.getElementById("advGrid");
+      function formatWebsiteLink(url) {
+          if (!url) return '#';
+          if (url.startsWith('http://') || url.startsWith('https://')) {
+              return url;
+          }
+          return `https://${url}`;
+      }
+      async function loadAdvertisers() {
+        const res = await fetch("/api/sponsors");
+        const list = await res.json();
+        grid.innerHTML = "";
+        list
+          .filter(a => a.status === "active")
+          .forEach(a => {
+            const col = document.createElement("div");
+            col.className = "col";
+            const imgSrc = a.image || "https://via.placeholder.com/300x300?text=Logo";
+            col.innerHTML = `
+              <a href="${formatWebsiteLink(a.website)}" target="_blank" class="logo-card d-flex justify-content-center align-items-center">
+                <img src="${imgSrc}" alt="${a.title || 'Advertiser logo'}" 
+                    onerror="this.src='https://via.placeholder.com/300x300?text=Logo'">
+              </a>
+            `;
+            grid.appendChild(col);
+          });
+      }
+      loadAdvertisers();
+    </script>
+  </body>
+
+</html>
