@@ -1,0 +1,86 @@
+/* Fixed square card container */
+.logo-card {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #ffffff;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    border: 1px solid #e5e5e5;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    text-decoration: none;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    /* Creates a perfect square */
+    overflow: hidden;
+    /* Ensures nothing spills outside the square */
+}
+
+/* Logo image: contain within the square without stretching */
+.logo-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* Ensures image fits inside without cropping or zooming */
+    padding: 0.5rem;
+    /* Gives a little breathing room around the image */
+    filter: grayscale(100%);
+    opacity: 0.8;
+    transition: filter 0.25s ease, opacity 0.25s ease;
+}
+
+/* Optional: If you want to limit the maximum logo size within the square */
+.logo-card img {
+    max-width: 80%;
+    /* Prevents overly large logos from touching edges */
+    max-height: 80%;
+}
+
+/* Hover effects */
+.logo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.12);
+    border-color: #d0d0d0;
+}
+
+.logo-card:hover img {
+    filter: grayscale(0%);
+    opacity: 1;
+}
+
+/* Ensure columns have consistent height */
+.col {
+    display: flex;
+}
+
+
+footer {
+    background: #111;
+    color: #ccc;
+    padding: 40px 0;
+}
+
+footer a {
+    color: #aaa;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #fff;
+}
+
+/* Minimal fix - add to bottom of your CSS */
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The content wrapper before footer */
+.container-fluid {
+    flex: 1;
+}

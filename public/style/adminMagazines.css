@@ -1,0 +1,58 @@
+/* The content wrapper before footer */
+.container-fluid {
+    flex: 1;
+}
+
+footer a {
+    color: #aaa;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #fff;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Main content area should grow */
+.container.py-5 {
+    flex: 1 0 auto;
+}
+
+/* Footer styling - add to bottom */
+footer {
+    background: #111;
+    color: #ccc;
+    padding: 20px 0;
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.pagination .page-link {
+    cursor: pointer;
+}
+
+.page-info {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.featured-star {
+    color: #ffc107;
+    font-size: 1.2rem;
+}
+
+.img-thumbnail {
+    max-height: 80px;
+    object-fit: cover;
+}

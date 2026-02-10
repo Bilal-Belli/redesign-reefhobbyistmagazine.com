@@ -1,0 +1,40 @@
+/* The content wrapper before footer */
+.container-fluid {
+    flex: 1;
+}
+
+footer a {
+    color: #aaa;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #fff;
+}
+
+/* Add these styles to your /style/admin.css file */
+
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Main content area should grow */
+.container.py-5 {
+    flex: 1 0 auto;
+}
+
+/* Footer styling - add to bottom */
+footer {
+    background: #111;
+    color: #ccc;
+    padding: 20px 0;
+    margin-top: auto;
+    flex-shrink: 0;
+}

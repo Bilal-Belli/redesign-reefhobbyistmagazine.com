@@ -1,0 +1,172 @@
+.hero {
+    background: #f5f7fa;
+    padding: 50px 0;
+}
+
+.banner img {
+    max-height: 60px;
+    margin: 10px;
+}
+
+.section-title {
+    border-left: 6px solid #0d6efd;
+    padding-left: 12px;
+    margin-bottom: 30px;
+}
+
+.archive-card img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: #f8f9fa;
+    padding: 6px;
+}
+
+footer {
+    background: #111;
+    color: #ccc;
+    padding: 40px 0;
+}
+
+footer a {
+    color: #aaa;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #fff;
+}
+
+.slider img {
+    /* height:280px; */
+    object-fit: cover;
+}
+
+.product-carousel {
+    position: relative;
+    padding: 0 60px;
+}
+
+.swiper {
+    width: 100%;
+    height: 500px;
+}
+
+.swiper-slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+}
+
+.swiper-slide img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Custom Navigation Buttons */
+.swiper-button-prev,
+.swiper-button-next {
+    width: 50px;
+    height: 100%;
+    top: 0;
+    margin-top: 0;
+    background: rgba(0, 0, 0, 0.05);
+    transition: background 0.3s ease;
+}
+
+.swiper-button-prev:hover,
+.swiper-button-next:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.swiper-button-prev {
+    left: 0;
+}
+
+.swiper-button-next {
+    right: 0;
+}
+
+.swiper-button-prev::after,
+.swiper-button-next::after {
+    font-size: 24px;
+    color: #333;
+    font-weight: bold;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .product-carousel {
+        padding: 0 40px;
+    }
+
+    .swiper {
+        height: 350px;
+    }
+
+    .swiper-button-prev,
+    .swiper-button-next {
+        width: 40px;
+    }
+}
+
+/* Override the default Swiper height for sponsor banner */
+.banner .swiper {
+    height: auto !important;
+    /* Remove fixed 500px height */
+    min-height: 60px;
+    /* Set minimum height for your images */
+}
+
+/* Ensure the banner section collapses to content */
+.banner {
+    overflow: hidden;
+}
+
+/* Container should clip overflow */
+.banner .container {
+    overflow: hidden;
+}
+
+/* Sponsor slides container */
+#sponsorSlides {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    /* Fixed height for consistent banner */
+}
+
+.previewSwiper {
+    max-height: 100%;
+}
+
+.previewSwiper canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* prevent swiper scaling */
+.swiper-slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Add this to your existing CSS - it only adds scroll functionality */
+#eventsContainer {
+    overflow-y: auto;
+    /* Add vertical scrollbar when needed */
+    max-height: 400px;
+    /* Set a fixed height for the scrollable area */
+}
+
+/* Optional: responsive height */
+@media (max-width: 768px) {
+    #eventsContainer {
+        max-height: 300px;
+    }
+}
