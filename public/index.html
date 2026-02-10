@@ -1,33 +1,398 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <title>Magazines</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<div class="container py-5">
-  <h2>Magazines</h2>
-  <div id="cards" class="row"></div>
-</div>
+<html lang="en">
 
-<script>
-fetch("/api/magazines").then(r=>r.json()).then(list=>{
-  const root = document.getElementById("cards");
-  list.forEach(m=>{
-    const col = document.createElement("div");
-    col.className="col-md-4 mb-4";
-    col.innerHTML=`
-      <div class="card h-100 shadow-sm">
-        <img src="${m.cover}" class="card-img-top">
-        <div class="card-body">
-          <h5>${m.title}</h5>
-          <a href="/flipbook/${m.id}" class="btn btn-outline-primary">Open</a>
+  <head>
+    <meta charset="UTF-8" />
+    <title>REEF Magazine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="/img/favicon.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./style/home.css" />
+  </head>
+
+  <body>
+    <!-- ================= LOADING OVERLAY ================= -->
+    <div id="loadingOverlay" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    ">
+      <div style="text-align: center;">
+        <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p style="color: white; margin-top: 1rem;">Loading...</p>
+      </div>
+    </div>
+
+    <!-- ================= NAVBAR ================= -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-black">
+      <div class="container">
+        <a class="navbar-brand" href="/"><img src="./img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+        <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div id="nav" class="collapse navbar-collapse">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="/archive">Archive</a></li>
+            <li class="nav-item"><a class="nav-link" href="/clubs">REEF Clubs</a></li>
+            <li class="nav-item"><a class="nav-link" href="/advertisers">Advertisers</a></li>
+            <li class="nav-item"><a class="nav-link" target="_blank"
+                href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+                Us</a></li>
+            <li class="nav-item"><a class="nav-link" href="/subscribe">Subscribe</a></li>
+            <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ================= SPONSORS ================= -->
+    <section class="banner py-4 bg-light">
+      <div class="container position-relative">
+        <div class="swiper">
+          <div class="swiper-wrapper" id="sponsorSlides"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CURRENT ISSUE ================= -->
+    <section class="hero">
+      <div class="container">
+        <h3 class="section-title">Current Issue</h3>
+        <div class="row g-3 align-items-stretch" id="currentIssue"></div>
+      </div>
+    </section>
+
+    <!-- ================= NEW PRODUCTS ================= -->
+    <section class="py-5 bg-white">
+      <div class="container">
+        <h3 class="section-title">NEW PRODUCTS</h3>
+        <div class="swiper" id="newProductsSwiper">
+          <div class="swiper-wrapper" id="newProducts"></div>
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
+          <div class="swiper-pagination"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FEATURED ISSUE ================= -->
+    <section class="py-5 bg-light">
+      <div class="container">
+        <h3 class="section-title">READ THIS ISSUE</h3>
+        <div id="featuredIssue"></div>
+      </div>
+    </section>
+
+    <!-- ================= ARCHIVE ================= -->
+    <section id="archive" class="py-5 bg-white">
+      <div class="container">
+        <h3 class="section-title">RECENT ISSUES</h3>
+        <div class="row" id="archiveGrid"></div>
+      </div>
+    </section>
+
+    <!-- ================= FOOTER ================= -->
+    <footer>
+      <div class="container text-center">
+        <p>All Rights Reserved. Copyright ©
+          <script>document.write(new Date().getFullYear())</script> Reef Hobbyist Magazine
+        </p>
+        <p>
+          <a href="/advertisers">Advertisers</a> ·
+          <a href="/subscribe">Subscribe</a> ·
+          <a target="_blank"
+            href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+            Us</a>
+        </p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+      // Fetch all data in parallel
+      Promise.all([
+        fetch("/api/magazines").then(r => r.json()),
+        fetch("/api/events").then(r => r.json())
+      ])
+        .then(([list, events]) => {
+          if (!list.length) return;
+
+          const featured = list.find(m => m.featured) || list[0];
+          const archive = list.slice(0, 8);
+
+          /* ================= CURRENT ISSUE ================= */
+          document.getElementById("currentIssue").innerHTML = `
+            <!-- COVER -->
+            <div class="col-md-4 d-flex">
+              <div class="bg-white rounded shadow p-3 w-100 d-flex flex-column">
+                <div class="fw-bold border-bottom pb-2 mb-2">
+                  CURRENT ISSUE
+                </div>
+                <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                  <img src="${featured.cover}"
+                      class="img-fluid"
+                      style="max-height:100%;object-fit:contain;">
+                </div>
+              </div>
+            </div>
+
+            <!-- PDF PREVIEW -->
+            <div class="col-md-4 d-flex">
+              <div class="bg-white rounded shadow p-3 w-100 d-flex flex-column">
+                <div class="fw-bold border-bottom pb-2 mb-2">
+                  INSIDE THIS ISSUE
+                </div>
+                <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                  <div class="swiper previewSwiper w-100 h-100">
+                    <div class="swiper-wrapper" id="previewPages"></div>
+                    <div class="swiper-pagination"></div>
+                    <div class="swiper-button-next"></div>
+                    <div class="swiper-button-prev"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- EVENTS -->
+            <div class="col-md-4 d-flex">
+              <div id="eventsList"
+                  class="bg-light rounded shadow p-3 w-100 d-flex flex-column">
+                <div class="fw-bold border-bottom pb-2 mb-2">
+                  UPCOMING EVENTS
+                </div>
+                <div id="eventsContainer"
+                    class="flex-grow-1 overflow-auto">
+                </div>
+              </div>
+            </div>
+          `;
+
+          if (featured.splittedPdf) {
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc =
+              "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+
+            const loadingTask = pdfjsLib.getDocument(featured.splittedPdf);
+
+            loadingTask.promise.then(async pdf => {
+
+              const container = document.getElementById("previewPages");
+
+              container.innerHTML = "";
+
+              for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+
+                const page = await pdf.getPage(i);
+
+                const swiperEl = document.querySelector(".previewSwiper");
+
+                const containerWidth = swiperEl.clientWidth;
+
+                const baseViewport = page.getViewport({ scale: 1 });
+
+                const scale = containerWidth / baseViewport.width;
+
+                const viewport = page.getViewport({ scale });
+
+                // 👉 create canvas FIRST
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                await page.render({
+                  canvasContext: ctx,
+                  viewport
+                }).promise;
+
+                canvas.style.width = "100%";
+                canvas.style.height = "auto";
+                canvas.style.borderRadius = "6px";
+
+                const slide = document.createElement("div");
+                slide.className = "swiper-slide d-flex align-items-center justify-content-center";
+
+                slide.appendChild(canvas);
+                container.appendChild(slide);
+              }
+
+              new Swiper(".previewSwiper", {
+                loop: true,
+                slidesPerView: 1,
+                spaceBetween: 10,
+                pagination: { el: ".swiper-pagination" },
+                navigation: {
+                  nextEl: ".swiper-button-next",
+                  prevEl: ".swiper-button-prev"
+                }
+              });
+
+            }).catch(err => {
+              console.error("PDF load error:", err);
+            });
+
+          }
+
+          /* ================= FEATURED ================= */
+          document.getElementById("featuredIssue").innerHTML = `
+      <div class="row">
+        <div class="col-12">
+          <div class="ratio ratio-16x9 shadow rounded">
+            <iframe 
+              src="${featured.embedUrl}"
+              allowfullscreen
+              loading="lazy"
+              style="border:0">
+            </iframe>
+          </div>
         </div>
       </div>
     `;
-    root.appendChild(col);
-  });
-});
-</script>
-</body>
+
+          /* ================= ARCHIVE ================= */
+          const grid = document.getElementById("archiveGrid");
+          archive.forEach(m => {
+            const col = document.createElement("div");
+            col.className = "col-lg-3 col-md-4 col-sm-6 mb-4";
+            col.innerHTML = `
+              <div class="card archive-card h-100 shadow-sm">
+                <img src="${m.cover}" class="card-img-top">
+                <div class="card-body text-center">
+                  <h6>${m.title}</h6>
+                  <a href="/flipbook/${m.id}" class="btn btn-sm btn-outline-primary">Open</a>
+                </div>
+              </div>
+            `;
+            grid.appendChild(col);
+          });
+
+          // ================= EVENTS LIST CODE =================
+          allEvents = events.filter(e => e.status === 'active');
+          
+          function renderEventsList() {
+            // Filter for future events (or all active events if you prefer)
+            const now = new Date();
+            const upcomingEvents = allEvents.filter(e => {
+              const eventDate = new Date(e.eventDate);
+              return eventDate >= now || e.status === 'active';
+            });
+
+            // Sort events by date (soonest first)
+            const sortedEvents = [...upcomingEvents].sort((a, b) =>
+              (a.eventDate || '').localeCompare(b.eventDate || '')
+            );
+
+            const eventsContainer = document.getElementById('eventsContainer');
+
+            if (!eventsContainer) return;
+
+            if (!sortedEvents.length) {
+              eventsContainer.innerHTML = `
+                <div style="color:#999;font-size:13px;text-align:center;padding:20px;">
+                  No upcoming events scheduled
+                </div>
+              `;
+              return;
+            }
+
+            // Create the events list
+            eventsContainer.innerHTML = sortedEvents.map(event => `
+              <div class="event-item" style="
+                margin-bottom:10px;
+                padding:12px;
+                background:white;
+                border-radius:6px;
+                border-left:3px solid #007bff;
+                cursor:pointer;
+                transition:all 0.2s;
+              " data-event-id="${event.id}">
+                <div style="font-weight:bold;margin-bottom:4px;font-size:13px;color:#333;">${event.title}</div>
+                <div style="color:#555;line-height:1.4;font-size:12px;margin-bottom:6px;">${event.description}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div style="font-size:11px;color:#777;">
+                    <i class="bi bi-calendar-event" style="margin-right:4px;"></i>
+                    ${new Date(event.eventDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                </div>
+              </div>
+            `).join('');
+
+            // Add click handlers to event items
+            const eventItems = eventsContainer.querySelectorAll('.event-item');
+            eventItems.forEach(item => {
+              item.addEventListener('click', function () {
+                // Highlight the clicked event
+                eventItems.forEach(el => {
+                  el.style.boxShadow = 'none';
+                  el.style.transform = 'none';
+                });
+                this.style.boxShadow = '0 2px 8px rgba(0,123,255,0.2)';
+                this.style.transform = 'translateY(-2px)';
+                // You could add more details display logic here if needed
+                console.log('Event clicked:', this.getAttribute('data-event-id'));
+              });
+
+              // Add hover effects
+              item.addEventListener('mouseenter', function () {
+                this.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+                this.style.transform = 'translateY(-1px)';
+              });
+
+              item.addEventListener('mouseleave', function () {
+                this.style.boxShadow = 'none';
+                this.style.transform = 'none';
+              });
+            });
+          }
+
+          // Render the events
+          renderEventsList();
+        })
+        .catch(err => {
+          console.error('Error loading data:', err);
+          const eventsContainer = document.getElementById('eventsContainer');
+          if (eventsContainer) {
+            eventsContainer.innerHTML = `
+              <div style="color:#999;font-size:13px;text-align:center;padding:20px;">
+                Failed to load content
+              </div>
+            `;
+          }
+        })
+        .finally(() => {
+          // Hide loading overlay after all data is fetched
+          const loadingOverlay = document.getElementById('loadingOverlay');
+          if (loadingOverlay) {
+            loadingOverlay.style.opacity = '0';
+            loadingOverlay.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => {
+              loadingOverlay.style.display = 'none';
+            }, 300);
+          }
+        });
+
+    </script>
+    <script src="./js/loadProductsSwiper.js"></script>
+    <script src="./js/sponsorsSwiper.js"></script>
+    <script src="./js/auth.js"></script>
+  </body>
 </html>
