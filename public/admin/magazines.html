@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>Admin – Magazines</title>
+    <link rel="icon" type="image/png" href="/img/favicon.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/style/adminMagazines.css" />
+  </head>
+
+  <body class="bg-light">
+    <!-- ================= NAVBAR ================= -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-black">
+      <div class="container">
+        <a class="navbar-brand" href="/admin"><img src="../img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+        <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div id="nav" class="collapse navbar-collapse">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item btn btn-outline-warning btn-sm mx-4"><a class="nav-link active" href="/admin">Admin Home</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ================= DASHBOARD ================= -->
+    <div class="container-fluid px-4 py-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📚 Manage Magazines</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+          Add Magazine
+        </button>
+      </div>
+
+      <!-- Search and Filter Controls -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="input-group">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search by title or year...">
+            <button class="btn btn-outline-secondary" type="button" onclick="searchMagazines()">Search</button>
+            <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">Clear</button>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" id="statusFilter" onchange="filterByStatus()">
+            <option value="" selected>All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" id="itemsPerPage" onchange="changeItemsPerPage()">
+            <option value="10">10 per page</option>
+            <option value="25" selected>25 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Featured Filter -->
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="featuredFilter" onchange="filterByFeatured()">
+            <label class="form-check-label" for="featuredFilter">Show Featured Only</label>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" id="sortBy" onchange="sortMagazines()">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="year_desc">Year (Descending)</option>
+            <option value="year_asc">Year (Ascending)</option>
+            <option value="title">Title (A-Z)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Cover</th>
+                  <th>Title</th>
+                  <th>Year</th>
+                  <th>Status</th>
+                  <th>Featured</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="magTable"></tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="page-info" id="pageInfo"></div>
+            <nav>
+              <ul class="pagination mb-0" id="pagination"></ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CREATE MODAL ================= -->
+    <div class="modal fade" id="createModal">
+      <div class="modal-dialog modal-lg">
+        <form id="createForm" class="modal-content" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5>Add Magazine</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input name="title" class="form-control mb-3" placeholder="Title" required>
+            <input name="year" type="number" min="1900" max="2100" class="form-control mb-3" placeholder="Year"
+              required>
+            <select name="status" class="form-select mb-3">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <div class="form-check mb-3">
+              <input type="checkbox" name="featured" value="true" class="form-check-input" id="createFeatured">
+              <label class="form-check-label" for="createFeatured">Featured</label>
+            </div>
+            <label class="fw-bold">PDF</label>
+            <input type="file" name="pdf" accept=".pdf" class="form-control mb-3" required>
+            <label class="fw-bold">Cover</label>
+            <input type="file" name="cover" accept="image/*" class="form-control mb-3" required>
+            <label class="fw-bold">Splitted PDF</label>
+            <input type="file" name="splitted_pdf" accept=".pdf" class="form-control mb-3">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= EDIT MODAL ================= -->
+    <div class="modal fade" id="editModal">
+      <div class="modal-dialog">
+        <form id="editForm" class="modal-content">
+          <div class="modal-header">
+            <h5>Edit Magazine</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="id">
+            <input name="title" class="form-control mb-3" placeholder="Title" required>
+            <input name="year" type="number" min="1900" max="2100" class="form-control mb-3" placeholder="Year"
+              required>
+            <select name="status" class="form-select mb-3">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <div class="form-check mb-3">
+              <input type="checkbox" name="featured" class="form-check-input" id="editFeatured">
+              <label class="form-check-label" for="editFeatured">Featured</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <footer>
+      <div class="container text-center">
+        <p>All Rights Reserved. Copyright ©
+          <script>document.write(new Date().getFullYear())</script> Reef Hobbyist Magazine
+        </p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // ================= PAGINATION VARIABLES =================
+      let allMagazines = [];
+      let filteredMagazines = [];
+      let currentPage = 1;
+      let itemsPerPage = 25;
+      let totalPages = 1;
+      let searchTerm = '';
+      let statusFilter = '';
+      let featuredFilter = false;
+      let sortBy = 'newest';
+
+      // ================= DOM ELEMENTS =================
+      const table = document.getElementById("magTable");
+      const pagination = document.getElementById("pagination");
+      const pageInfo = document.getElementById("pageInfo");
+
+      // ================= LOAD ALL MAGAZINES =================
+      async function loadMagazines() {
+        try {
+          const res = await fetch("/api/magazines");
+          allMagazines = await res.json();
+          statusFilter = ''; // Reset status filter
+          applyFilters();
+          sortMagazinesList();
+          renderTable();
+          updatePagination();
+        } catch (error) {
+          console.error("Error loading magazines:", error);
+          table.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Failed to load magazines</td></tr>`;
+        }
+      }
+
+      // ================= APPLY FILTERS =================
+      function applyFilters() {
+        filteredMagazines = allMagazines.filter(magazine => {
+          if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            if (!magazine.title.toLowerCase().includes(searchLower) &&
+              !magazine.year.toString().includes(searchTerm)) {
+              return false;
+            }
+          }
+          if (statusFilter && magazine.status !== statusFilter) {
+            return false;
+          }
+          if (featuredFilter && !magazine.featured) {
+            return false;
+          }
+          return true;
+        });
+        currentPage = 1; // Reset to first page when filters change
+        totalPages = Math.ceil(filteredMagazines.length / itemsPerPage);
+      }
+
+      // ================= SORT MAGAZINES =================
+      function sortMagazinesList() {
+        if (!filteredMagazines.length) return;
+        switch (sortBy) {
+          case 'newest':
+            filteredMagazines.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+            break;
+          case 'oldest':
+            filteredMagazines.sort((a, b) => new Date(a.updatedAt || a.createdAt) - new Date(b.updatedAt || b.createdAt));
+            break;
+          case 'year_desc':
+            filteredMagazines.sort((a, b) => b.year - a.year);
+            break;
+          case 'year_asc':
+            filteredMagazines.sort((a, b) => a.year - b.year);
+            break;
+          case 'title':
+            filteredMagazines.sort((a, b) => a.title.localeCompare(b.title));
+            break;
+          default:
+            filteredMagazines.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+        }
+      }
+
+      // ================= RENDER TABLE =================
+      function renderTable() {
+        if (filteredMagazines.length === 0) {
+          table.innerHTML = `<tr><td colspan="8" class="text-center">No magazines found</td></tr>`;
+          return;
+        }
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, filteredMagazines.length);
+        const pageMagazines = filteredMagazines.slice(startIndex, endIndex);
+        table.innerHTML = "";
+        pageMagazines.forEach(m => {
+          const tr = document.createElement("tr");
+          const formatDate = (dateStr) => {
+            if (!dateStr) return "N/A";
+            try {
+              const date = new Date(dateStr);
+              return date.toLocaleDateString();
+            } catch {
+              return dateStr.split("T")[0] || dateStr;
+            }
+          };
+          // Status badge
+          const statusClass = m.status === 'active' ? 'badge bg-success' : 'badge bg-danger';
+          // Featured star
+          const featuredIcon = m.featured ? '<span class="featured-star">⭐</span>' : '';
+          tr.innerHTML = `
+            <td><strong>${m.id}</strong></td>
+            <td>
+              <img src="${m.cover}" alt="${m.title}" class="img-thumbnail" 
+                  style="max-height: 80px; object-fit: cover;"
+                  onerror="this.src='https://via.placeholder.com/100x140?text=No+Cover'">
+            </td>
+            <td>${m.title}</td>
+            <td>${m.year}</td>
+            <td><span class="${statusClass}">${m.status}</span></td>
+            <td class="text-center">${featuredIcon}</td>
+            <td>${formatDate(m.updatedAt || m.createdAt)}</td>
+            <td>
+              <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-outline-secondary" onclick="openEdit('${m.id}')">Edit</button>
+                <button class="btn btn-outline-danger" onclick="deleteMag('${m.id}')">Delete</button>
+              </div>
+            </td>
+          `;
+          table.appendChild(tr);
+        });
+      }
+
+      // ================= UPDATE PAGINATION CONTROLS =================
+      function updatePagination() {
+        pagination.innerHTML = "";
+        if (totalPages <= 1) {
+          pageInfo.textContent = `Showing ${filteredMagazines.length} magazines`;
+          return;
+        }
+        // Previous button
+        const prevLi = document.createElement("li");
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" ${currentPage > 1 ? 'onclick="goToPage(' + (currentPage - 1) + ')"' : ''}>Previous</a>`;
+        pagination.appendChild(prevLi);
+        // Page numbers
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        if (endPage - startPage + 1 < maxVisiblePages) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        for (let i = startPage; i <= endPage; i++) {
+          const li = document.createElement("li");
+          li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+          li.innerHTML = `<a class="page-link" onclick="goToPage(${i})">${i}</a>`;
+          pagination.appendChild(li);
+        }
+        // Next button
+        const nextLi = document.createElement("li");
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" ${currentPage < totalPages ? 'onclick="goToPage(' + (currentPage + 1) + ')"' : ''}>Next</a>`;
+        pagination.appendChild(nextLi);
+        // Page info
+        const startIndex = (currentPage - 1) * itemsPerPage + 1;
+        const endIndex = Math.min(currentPage * itemsPerPage, filteredMagazines.length);
+        pageInfo.textContent = `Showing ${startIndex}-${endIndex} of ${filteredMagazines.length} magazines`;
+      }
+
+      // ================= PAGINATION FUNCTIONS =================
+      function goToPage(page) {
+        if (page < 1 || page > totalPages || page === currentPage) return;
+        currentPage = page;
+        renderTable();
+        updatePagination();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function changeItemsPerPage() {
+        itemsPerPage = parseInt(document.getElementById("itemsPerPage").value);
+        currentPage = 1;
+        totalPages = Math.ceil(filteredMagazines.length / itemsPerPage);
+        renderTable();
+        updatePagination();
+      }
+
+      // ================= SEARCH AND FILTER FUNCTIONS =================
+      function searchMagazines() {
+        searchTerm = document.getElementById("searchInput").value.trim();
+        applyFilters();
+        sortMagazinesList();
+        renderTable();
+        updatePagination();
+      }
+
+      function clearSearch() {
+        document.getElementById("searchInput").value = "";
+        searchTerm = "";
+        applyFilters();
+        sortMagazinesList();
+        renderTable();
+        updatePagination();
+      }
+
+      function filterByStatus() {
+        statusFilter = document.getElementById("statusFilter").value;
+        applyFilters();
+        sortMagazinesList();
+        renderTable();
+        updatePagination();
+      }
+
+      function filterByFeatured() {
+        featuredFilter = document.getElementById("featuredFilter").checked;
+        applyFilters();
+        sortMagazinesList();
+        renderTable();
+        updatePagination();
+      }
+
+      function sortMagazines() {
+        sortBy = document.getElementById("sortBy").value;
+        sortMagazinesList();
+        renderTable();
+        updatePagination();
+      }
+
+      // ================= CREATE MAGAZINE =================
+      document.getElementById("createForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        
+        // If marking as featured, confirm since it will unfeature others
+        if (document.getElementById("createFeatured").checked) {
+          const currentFeatured = allMagazines.find(m => m.featured);
+          if (currentFeatured) {
+            if (!confirm(`This will unfeature \"${currentFeatured.title}\". Continue?`)) {
+              return;
+            }
+          }
+        }
+        
+        const fd = new FormData(e.target);
+        try {
+          const res = await fetch("/api/admin/magazines", {
+            method: "POST",
+            body: fd
+          });
+          const json = await res.json();
+          if (json.success) {
+            const modalEl = document.getElementById("createModal");
+            bootstrap.Modal.getInstance(modalEl).hide();
+            e.target.reset();
+            loadMagazines(); // Reload all data
+          } else {
+            alert(json.error || "Create failed");
+          }
+        } catch (error) {
+          alert("Network error: " + error.message);
+        }
+      });
+
+      // ================= EDIT MAGAZINE =================
+      async function openEdit(id) {
+        const m = allMagazines.find(x => x.id === id);
+        if (!m) {
+          alert("Magazine not found");
+          return;
+        }
+        const f = document.forms.editForm;
+        f.id.value = m.id;
+        f.title.value = m.title;
+        f.year.value = m.year;
+        f.status.value = m.status;
+        f.featured.checked = m.featured;
+        new bootstrap.Modal(document.getElementById("editModal")).show();
+      }
+
+      document.getElementById("editForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const id = e.target.id.value;
+        
+        // If marking as featured, confirm since it will unfeature others
+        if (e.target.featured.checked) {
+          const currentFeatured = allMagazines.find(m => m.featured);
+          if (currentFeatured && currentFeatured.id !== id) {
+            if (!confirm(`This will unfeature "${currentFeatured.title}". Continue?`)) {
+              return;
+            }
+          }
+        }
+        
+        const payload = {
+          title: e.target.title.value,
+          year: parseInt(e.target.year.value),
+          status: e.target.status.value,
+          featured: e.target.featured.checked
+        };
+        try {
+          const res = await fetch("/api/admin/magazines/" + id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json();
+          if (json.success) {
+            bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
+            loadMagazines(); // Reload all data
+          } else {
+            alert(json.error || "Update failed");
+          }
+        } catch (error) {
+          alert("Network error: " + error.message);
+        }
+      });
+
+      // ================= DELETE MAGAZINE =================
+      async function deleteMag(id) {
+        if (!confirm("Are you sure you want to delete this magazine?")) return;
+        try {
+          const res = await fetch("/api/admin/magazines/" + id, {
+            method: "DELETE"
+          });
+          const json = await res.json();
+          if (json.success) {
+            loadMagazines(); // Reload all data
+          } else {
+            alert(json.error || "Delete failed");
+          }
+        } catch (error) {
+          alert("Network error: " + error.message);
+        }
+      }
+
+      // ================= INITIALIZE =================
+      document.addEventListener("DOMContentLoaded", function () {
+        // Clear all filters on load
+        searchTerm = '';
+        statusFilter = '';
+        featuredFilter = false;
+        currentPage = 1;
+        // Reset filter controls
+        document.getElementById("searchInput").value = "";
+        document.getElementById("statusFilter").value = "";
+        document.getElementById("featuredFilter").checked = false;
+        document.getElementById("sortBy").value = "newest";
+        loadMagazines();
+        // Add keyboard shortcut for search
+        document.getElementById("searchInput").addEventListener("keyup", function (e) {
+          if (e.key === "Enter") {
+            searchMagazines();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

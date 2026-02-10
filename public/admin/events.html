@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>Admin – Events</title>
+    <link rel="icon" type="image/png" href="/img/favicon.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/style/admin.css" />
+  </head>
+
+  <body class="bg-light">
+    <!-- ================= NAVBAR ================= -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-black">
+      <div class="container">
+        <a class="navbar-brand" href="/admin"><img src="../img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+        <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div id="nav" class="collapse navbar-collapse">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item btn btn-outline-warning btn-sm mx-4"><a class="nav-link active" href="/admin">Admin Home</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ================= EVENTS ================= -->
+    <div class="container-fluid px-4 py-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>🎉 Manage Events</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+          Add Event
+        </button>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+              <tr>
+                <th>ID</th>
+                <th>Event Title</th>
+                <th>Description</th>
+                <th>Event Date</th>
+                <th>Featured</th>
+                <th>Status</th>
+                <th>Sort</th>
+                <th>Last Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CREATE MODAL ================= -->
+    <div class="modal fade" id="createModal">
+      <div class="modal-dialog">
+        <form id="createForm" class="modal-content">
+          <div class="modal-header">
+            <h5>Add Event</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input name="title" class="form-control mb-3" placeholder="Event Title" required>
+            <input type="number" name="sort" class="form-control mb-3" placeholder="Sort (Unique)" required>
+            <div class="form-check mb-3">
+              <input type="checkbox" name="featured" value="true" class="form-check-input">
+              <label class="form-check-label">Featured</label>
+            </div>
+            <select name="status" class="form-select mb-3">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <input type="date" name="eventDate" class="form-control mb-3" required>
+            <textarea name="description" class="form-control mb-3" placeholder="Description"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= EDIT MODAL ================= -->
+    <div class="modal fade" id="editModal">
+      <div class="modal-dialog">
+        <form id="editForm" class="modal-content">
+          <div class="modal-header">
+            <h5>Edit Event</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="id">
+            <input name="title" class="form-control mb-3" placeholder="Event Title" required>
+            <input type="number" name="sort" class="form-control mb-3" placeholder="Sort (Unique)" required>
+            <div class="form-check mb-3">
+              <input type="checkbox" name="featured" value="true" class="form-check-input">
+              <label class="form-check-label">Featured</label>
+            </div>
+            <select name="status" class="form-select mb-3">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <input type="date" name="eventDate" class="form-control mb-3" required>
+            <textarea name="description" class="form-control mb-3" placeholder="Description"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <footer>
+      <div class="container text-center">
+        <p>All Rights Reserved. Copyright ©
+          <script>document.write(new Date().getFullYear())</script> Reef Hobbyist Magazine
+        </p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const table = document.getElementById("eventsTable");
+      /* ================= LOAD ================= */
+      async function loadEvents() {
+        const res = await fetch("/api/admin/events");
+        const list = await res.json();
+        table.innerHTML = "";
+        list.forEach(e => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${e.id}</td>
+            <td>${e.title}</td>
+            <td>${e.description || ""}</td>
+            <td>${e.eventDate || ""}</td>
+            <td>${e.featured ? "✅" : ""}</td>
+            <td>${e.status}</td>
+            <td>${e.sort}</td>
+            <td>${(e.updatedAt || e.createdAt || "").split("T")[0]}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary"
+                onclick="openEdit('${e.id}')">Edit</button>
+              <button class="btn btn-sm btn-outline-danger"
+                onclick="deleteEvent('${e.id}')">Delete</button>
+            </td>
+          `;
+          table.appendChild(tr);
+        });
+      }
+      loadEvents();
+
+      /* ================= CREATE ================= */
+      document.getElementById("createForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const payload = {
+          title: fd.get("title"),
+          description: fd.get("description"),
+          eventDate: fd.get("eventDate"),
+          sort: Number(fd.get("sort")),
+          featured: fd.get("featured") === "true",
+          status: fd.get("status")
+        };
+        const res = await fetch("/api/admin/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json.success) {
+          bootstrap.Modal.getInstance(createModal).hide();
+          e.target.reset();
+          loadEvents();
+        } else alert(json.error || "Create failed");
+      });
+
+      /* ================= OPEN EDIT ================= */
+      async function openEdit(id) {
+        const list = await fetch("/api/admin/events").then(r => r.json());
+        const e = list.find(x => x.id === id);
+        const f = document.forms.editForm;
+        f.id.value = e.id;
+        f.title.value = e.title;
+        f.description.value = e.description || "";
+        f.eventDate.value = e.eventDate || "";
+        f.sort.value = e.sort;
+        f.featured.checked = e.featured;
+        f.status.value = e.status;
+        new bootstrap.Modal(editModal).show();
+      }
+
+      /* ================= UPDATE ================= */
+      document.getElementById("editForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const id = e.target.id.value;
+        const payload = {
+          title: e.target.title.value,
+          description: e.target.description.value,
+          eventDate: e.target.eventDate.value,
+          sort: Number(e.target.sort.value),
+          featured: e.target.featured.checked,
+          status: e.target.status.value
+        };
+        const res = await fetch("/api/admin/events/" + id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json.success) {
+          bootstrap.Modal.getInstance(editModal).hide();
+          loadEvents();
+        } else alert(json.error || "Update failed");
+      });
+
+      /* ================= DELETE ================= */
+      async function deleteEvent(id) {
+        if (!confirm("Delete this event?")) return;
+        const res = await fetch("/api/admin/events/" + id, { method: "DELETE" });
+        const json = await res.json();
+        if (json.success) loadEvents();
+      }
+    </script>
+  </body>
+</html>
