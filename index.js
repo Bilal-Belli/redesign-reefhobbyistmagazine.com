@@ -7,7 +7,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
-
+const FileStore = require('session-file-store')(session);
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -19,16 +19,21 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_LIST_ID = process.env.BREVO_LIST_ID ? Number(process.env.BREVO_LIST_ID) : undefined;
 
+app.set('trust proxy', 1);
+
 /* ================= SESSION MIDDLEWARE ================= */
 app.use(session({
-    secret: process.env.SESSION_SECRET || "reef_magazine_secret_2024",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+  store: new FileStore({
+    path: './sessions'
+  }),
+  secret: process.env.SESSION_SECRET || "reef_magazine_secret_2024",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false,
+    maxAge: 3 * 24 * 60 * 60 * 1000
+  }
 }));
 
 /* ================= DIRECTORIES ================= */
@@ -194,7 +199,7 @@ app.post('/api/admin/magazines', upload.fields([
   }
 });
 
-/* ================= PUBLIC API ================= */
+// return embed URL for all magazines (with allowed options by Heyzine config / client_id configs)
 app.get('/api/magazines', (req, res) => {
   const db = readDB();
   const active = db.filter(m => m.status === 'active').sort((a, b) => {
@@ -206,6 +211,7 @@ app.get('/api/magazines', (req, res) => {
   res.json(active);
 });
 
+// return the json from flipbook database
 app.get('/api/flipbook/:id', (req, res) => {
   const db = readDB();
   const fb = db.find(r => r.id === req.params.id);
@@ -213,6 +219,7 @@ app.get('/api/flipbook/:id', (req, res) => {
   res.json(fb);
 });
 
+// return embed html code to fetch in iframe without download option (for all website visitors)
 app.get('/api/featuredIssue', (req, res) => {
   const db = readDB();
   const featured = db.find(m => m.featured);
