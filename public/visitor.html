@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8" />
+        <title>REEF Magazine</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="icon" type="image/png" href="/img/favicon.ico">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="/style/home.css" />
+    </head>
+
+    <body>
+        <!-- ================= NAVBAR ================= -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-black">
+            <div class="container">
+                <a class="navbar-brand" href="/"><img src="/img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+                <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div id="nav" class="collapse navbar-collapse">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/archive">Archive</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/clubs">REEF Clubs</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/advertisers">Advertisers</a></li>
+                        <li class="nav-item"><a class="nav-link" target="_blank"
+                                href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+                                Us</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/subscribe">Subscribe</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ================= SPONSORS ================= -->
+        <section class="banner py-4 bg-light">
+            <div class="container position-relative">
+                <div class="swiper">
+                    <div class="swiper-wrapper" id="sponsorSlides"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= FEATURED ISSUE ================= -->
+        <section class="py-5 bg-light">
+            <div class="container">
+                <iframe id="viewerFrame" style="width:100%;height:100vh;border:0"></iframe>
+            </div>
+        </section>
+
+        <!-- ================= FOOTER ================= -->
+        <footer>
+            <div class="container text-center">
+                <p>All Rights Reserved. Copyright ©
+                    <script>document.write(new Date().getFullYear())</script> Reef Hobbyist Magazine
+                </p>
+                <p>
+                    <a href="/advertisers">Advertisers</a> ·
+                    <a target="_blank"
+                        href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
+                        Us</a>
+                </p>
+            </div>
+        </footer>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="/js/sponsorsSwiper.js"></script>
+        <script src="/js/auth.js"></script>
+        <script>
+            const id = location.pathname.split("/").pop();
+            fetch(`/api/flipbook/${id}/visitor`)
+                .then(r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                    return r.json();
+                })
+                .then(data => {
+                    document.getElementById("viewerFrame").src = data.embedUrl;
+                })
+                .catch(err => {
+                    console.error('Fetch error:', err);
+                    alert("Error loading flipbook");
+                });
+        </script>
+    </body>
+
+</html>

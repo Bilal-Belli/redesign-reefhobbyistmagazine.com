@@ -126,9 +126,10 @@
       // Fetch all data in parallel
       Promise.all([
         fetch("/api/magazines").then(r => r.json()),
-        fetch("/api/events").then(r => r.json())
+        fetch("/api/events").then(r => r.json()),
+        fetch("/api/featuredIssue").then(r => r.json())
       ])
-        .then(([list, events]) => {
+        .then(([list, events, featuredIssue]) => {
           if (!list.length) return;
 
           const featured = list.find(m => m.featured) || list[0];
@@ -254,7 +255,7 @@
         <div class="col-12">
           <div class="ratio ratio-16x9 shadow rounded">
             <iframe 
-              src="${featured.embedUrl}"
+              src="${featuredIssue.embedUrl}"
               allowfullscreen
               loading="lazy"
               style="border:0">

@@ -213,6 +213,30 @@ app.get('/api/flipbook/:id', (req, res) => {
   res.json(fb);
 });
 
+app.get('/api/featuredIssue', (req, res) => {
+  const db = readDB();
+  const featured = db.find(m => m.featured);
+  if (!featured) return res.status(404).json({ error: 'Not found' });
+  const clientId = process.env.HEYZINE_CLIENT_ID; // Load from .env
+  if (!clientId) return res.status(500).json({ error: 'Config error' });
+
+  const embedUrl = `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${featured.heyzineId}&k=${clientId}&d=0`;
+  res.json({ embedUrl });
+});
+
+// without download option (for website visitors)
+app.get('/api/flipbook/:id/visitor', (req, res) => {
+  const db = readDB();
+  const fb = db.find(r => r.id === req.params.id);
+  if (!fb) return res.status(404).json({ error: 'Not found' });
+  
+  const clientId = process.env.HEYZINE_CLIENT_ID; // Load from .env
+  if (!clientId) return res.status(500).json({ error: 'Config error' });
+  
+  const embedUrl = `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${fb.heyzineId}&k=${clientId}&d=0`;
+  res.json({ embedUrl });
+});
+
 // ================= ADMIN API ================= */
 // manage magazines
 
@@ -1032,7 +1056,13 @@ app.get('/advertisers', (req, res) => res.sendFile(path.join(__dirname, 'public/
 app.get('/clubs', (req, res) => res.sendFile(path.join(__dirname, 'public/clubs.html')));
 app.get('/archive', isLoggedIn, (req, res) => res.sendFile(path.join(__dirname, 'public/archive.html')));
 app.get('/subscribe', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
-app.get('/flipbook/:id', (req, res) => res.sendFile(path.join(__dirname, 'public/flipbook.html')));
+app.get('/flipbook/:id', (req, res) => {
+  if (!req.session || !req.session.userId) {
+    res.sendFile(path.join(__dirname, 'public/visitor.html'));
+  } else {
+    res.sendFile(path.join(__dirname, 'public/flipbook.html'));
+  }
+});
 
 /* ================= START SERVER ================= */
 app.listen(PORT, () => console.log(`Server running at ${BASE_URL}`));
