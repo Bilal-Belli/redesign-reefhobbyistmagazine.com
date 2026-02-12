@@ -29,6 +29,7 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS
   }
 });
+
 /* ================= SESSION MIDDLEWARE ================= */
 app.use(session({
     secret: process.env.SESSION_SECRET || "reef_magazine_secret_2024",
@@ -40,6 +41,10 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ================= DIRECTORIES =================
 const DATA_DIR = path.join(__dirname, 'data');
@@ -76,9 +81,7 @@ function writeNewsDB(data) { fs.writeFileSync(NEWS_FILE, JSON.stringify(data, nu
 function readProductDB() { return JSON.parse(fs.readFileSync(PRODUCT_FILE)) }
 function writeProductDB(data) { fs.writeFileSync(PRODUCT_FILE, JSON.stringify(data, null, 2)) }
 function readMembersDB() { return JSON.parse(fs.readFileSync(MEMBERS_FILE)) }
-function writeMembersDB(data) { fs.writeFileSync(MEMBERS_FILE, JSON.stringify(data, null, 2)) }
 function readUsersDB(){ return JSON.parse(fs.readFileSync(USERS_FILE)) }
-// async version: (to promise time when many concurrent operations happen)
 function writeUsersDB(data) {
   try {
     fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
@@ -98,16 +101,11 @@ function isLoggedIn(req, res, next){
 }
 
 // =================  PROTECTED STATIC HTML =================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 // Protect admin API endpoints: require admin session
 app.use('/api/admin', (req, res, next) => {
   if (req.session && req.session.isAdmin) return next();
   return res.status(401).json({ error: 'Admin auth required' });
 });
-
-// Protect /admin.html and other subs from direct URL access
 app.get('/admin.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin.html'));
   return res.redirect('/login');
@@ -145,9 +143,6 @@ app.get('/admin/members.html', (req, res) => {
   return res.redirect('/login');
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 app.get('/uploads/:filename', (req, res) => {
   if (req.query.token !== PROTECTION_TOKEN) return res.status(403).send("Unauthorized");
   const filePath = path.join(UPLOAD_DIR, req.params.filename);
@@ -157,13 +152,21 @@ app.get('/uploads/:filename', (req, res) => {
 
 // ================ MULTER =================
 // Create storage for PDF + Cover + Sponsor images
+const dirMap = {
+  'pdf': UPLOAD_DIR,
+  'cover': COVER_DIR,
+  'image': SPONSORS_DIR,
+  'product_image': path.join(__dirname, "uploads/products"),
+  'splitted_pdf': SPLITTED_DIR
+};
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    if (file.fieldname === 'pdf') cb(null, UPLOAD_DIR);
-    else if (file.fieldname === 'cover') cb(null, COVER_DIR);
-    else if (file.fieldname === 'image') cb(null, SPONSORS_DIR);
-    else if (file.fieldname === 'splitted_pdf') cb(null, SPLITTED_DIR);
-    else cb(null, UPLOAD_DIR);
+    // If it's the product route using the 'image' field, we target the products folder
+    if (req.path.includes('/products') && file.fieldname === 'image') {
+      cb(null, path.join(__dirname, "uploads/products"));
+    } else {
+      cb(null, dirMap[file.fieldname] || UPLOAD_DIR);
+    }
   },
   filename: function (req, file, cb) {
     const id = crypto.randomUUID();
@@ -390,20 +393,20 @@ app.delete('/api/admin/magazines/:id', (req, res) => {
   }
 });
 
-// ================= Manage advertisers
-
-
-
-
+// ================= Manage Advertisers
 // GET all
 app.get("/api/admin/advertisers", (req, res) => {
   try { res.json(readAdvDB()) }
   catch (e) { res.status(500).json({ error: "Failed" }) }
 });
 
-// GET all
+// GET Public endpoint - filter active elements
 app.get("/api/advertisers", (req, res) => {
-  try { res.json(readAdvDB()) }
+  try { 
+    const db = readAdvDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
+  }
   catch (e) { res.status(500).json({ error: "Failed" }) }
 });
 
@@ -453,22 +456,14 @@ app.delete("/api/admin/advertisers/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
-// manage sponsors
-
-
-
-
-
-
+// ================= Manage Sponsors
 // GET all
 app.get("/api/admin/sponsors", (req, res) => {
   try { res.json(readSponsorDB()) }
   catch (e) { res.status(500).json({ error: "Failed" }) }
 });
 
-
-
-// Public endpoint - return sponsors for frontend
+// GET Public endpoint - return active sponsors for frontend
 app.get('/api/sponsors', (req, res) => {
   try {
     const db = readSponsorDB();
@@ -480,17 +475,16 @@ app.get('/api/sponsors', (req, res) => {
   }
 });
 
+// POST
 app.post("/api/admin/sponsors", upload.single('image'), (req, res) => {
   try {
     const { title, website, status } = req.body;
     const db = readSponsorDB();
-
     // Get image URL if uploaded
     let imageUrl = '';
     if (req.file) {
       imageUrl = `/uploads/sponsors/${req.file.filename}`;
     }
-
     const record = {
       id: crypto.randomUUID(),
       title,
@@ -499,7 +493,6 @@ app.post("/api/admin/sponsors", upload.single('image'), (req, res) => {
       image: imageUrl,
       createdAt: new Date().toISOString()
     };
-
     db.push(record);
     writeSponsorDB(db);
     res.json({ success: true, record });
@@ -515,14 +508,11 @@ app.patch("/api/admin/sponsors/:id", upload.single('image'), (req, res) => {
     const { id } = req.params;
     const db = readSponsorDB();
     const sponsor = db.find(a => a.id === id);
-
     if (!sponsor) return res.status(404).json({ error: "Not found" });
-
     const { title, website, status } = req.body;
     sponsor.title = title || sponsor.title;
     sponsor.website = website || sponsor.website;
     sponsor.status = status || sponsor.status;
-
     // Update image if a new one was uploaded
     if (req.file) {
       // Delete old image if exists
@@ -534,7 +524,6 @@ app.patch("/api/admin/sponsors/:id", upload.single('image'), (req, res) => {
       }
       sponsor.image = `/uploads/sponsors/${req.file.filename}`;
     }
-
     sponsor.updatedAt = new Date().toISOString();
     writeSponsorDB(db);
     res.json({ success: true });
@@ -544,15 +533,13 @@ app.patch("/api/admin/sponsors/:id", upload.single('image'), (req, res) => {
   }
 });
 
-// DELETE sponsor with image cleanup
+// DELETE
 app.delete("/api/admin/sponsors/:id", (req, res) => {
   try {
     const { id } = req.params;
     let db = readSponsorDB();
     const idx = db.findIndex(a => a.id === id);
-
     if (idx === -1) return res.status(404).json({ error: "Not found" });
-
     // Delete associated image file
     const sponsor = db[idx];
     if (sponsor.image) {
@@ -561,7 +548,6 @@ app.delete("/api/admin/sponsors/:id", (req, res) => {
         fs.unlinkSync(imagePath);
       }
     }
-
     db.splice(idx, 1);
     writeSponsorDB(db);
     res.json({ success: true });
@@ -571,21 +557,20 @@ app.delete("/api/admin/sponsors/:id", (req, res) => {
   }
 });
 
-// manage reefclubs
-
-
-
-
-
-// GET allac
+// ================= Manage Reefclubs
+// GET all
 app.get("/api/admin/reefclubs", (req, res) => {
   try { res.json(readReefDB()) }
   catch (e) { res.status(500).json({ error: "Failed" }) }
 });
 
-// GET allac
-app.get("/api/reefclubs", (req, res) => {
-  try { res.json(readReefDB()) }
+// GET Public endpoint - apply filter for active elements
+app.get(["/api/reefclubs","/api/admin/reefclubs"], (req, res) => {
+  try { 
+    const db = readReefDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
+  }
   catch (e) { res.status(500).json({ error: "Failed" }) }
 });
 
@@ -594,16 +579,13 @@ app.post("/api/admin/reefclubs", (req, res) => {
   try {
     const { title, city, status, sort, state, website } = req.body;
     const db = readReefDB();
-
     if (db.find(c => c.sort === sort))
       return res.status(400).json({ error: "Sort value must be unique" });
-
     const record = {
       id: crypto.randomUUID(),
       title, city, status, sort, state, website,
       createdAt: new Date().toISOString()
     };
-
     db.push(record);
     writeReefDB(db);
     res.json({ success: true, record });
@@ -618,10 +600,8 @@ app.patch("/api/admin/reefclubs/:id", (req, res) => {
     const db = readReefDB();
     const c = db.find(x => x.id === id);
     if (!c) return res.status(404).json({ error: "Not found" });
-
     if (db.find(x => x.sort === sort && x.id !== id))
       return res.status(400).json({ error: "Sort value must be unique" });
-
     c.title = title ?? c.title;
     c.city = city ?? c.city;
     c.state = req.body.state ?? c.state;
@@ -629,7 +609,6 @@ app.patch("/api/admin/reefclubs/:id", (req, res) => {
     c.status = status ?? c.status;
     c.sort = sort ?? c.sort;
     c.updatedAt = new Date().toISOString();
-
     writeReefDB(db);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: "Update failed" }) }
@@ -648,12 +627,7 @@ app.delete("/api/admin/reefclubs/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
-// ================= EVENTS =================
-
-
-
-
-
+// ================= Manage Events
 // GET all
 app.get("/api/admin/events", (req, res) => {
   try {
@@ -663,9 +637,12 @@ app.get("/api/admin/events", (req, res) => {
   }
 });
 
+// GET Public endpoint - filter active elements
 app.get("/api/events", (req, res) => {
   try {
-    res.json(readEventDB());
+    const db = readEventDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
   } catch (e) {
     res.status(500).json({ error: "Failed" });
   }
@@ -675,13 +652,10 @@ app.get("/api/events", (req, res) => {
 app.post("/api/admin/events", (req, res) => {
   try {
     const { title, status, sort, featured, description, eventDate } = req.body;
-
     const db = readEventDB();
-
     if (db.find(ev => ev.sort === Number(sort))) {
       return res.status(400).json({ error: "Sort value must be unique" });
     }
-
     const record = {
       id: crypto.randomUUID(),
       title,
@@ -693,12 +667,9 @@ app.post("/api/admin/events", (req, res) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-
     db.push(record);
     writeEventDB(db);
-
     res.json({ success: true, record });
-
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Create failed" });
@@ -710,16 +681,12 @@ app.patch("/api/admin/events/:id", (req, res) => {
   try {
     const { id } = req.params;
     const { title, status, sort, featured, description, eventDate } = req.body;
-
     const db = readEventDB();
     const ev = db.find(x => x.id === id);
-
     if (!ev) return res.status(404).json({ error: "Not found" });
-
     if (db.find(x => x.sort === Number(sort) && x.id !== id)) {
       return res.status(400).json({ error: "Sort value must be unique" });
     }
-
     ev.title = title ?? ev.title;
     ev.description = description ?? ev.description;
     ev.eventDate = eventDate ?? ev.eventDate;
@@ -727,11 +694,8 @@ app.patch("/api/admin/events/:id", (req, res) => {
     ev.sort = sort !== undefined ? Number(sort) : ev.sort;
     ev.featured = featured !== undefined ? !!featured : ev.featured;
     ev.updatedAt = new Date().toISOString();
-
     writeEventDB(db);
-
     res.json({ success: true });
-
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Update failed" });
@@ -742,31 +706,31 @@ app.patch("/api/admin/events/:id", (req, res) => {
 app.delete("/api/admin/events/:id", (req, res) => {
   try {
     const { id } = req.params;
-
     let db = readEventDB();
     const idx = db.findIndex(x => x.id === id);
-
     if (idx === -1) return res.status(404).json({ error: "Not found" });
-
     db.splice(idx, 1);
     writeEventDB(db);
-
     res.json({ success: true });
-
   } catch (e) {
     res.status(500).json({ error: "Delete failed" });
   }
 });
 
-// manage news
-
-
-
-
-
+// ================= Manage News
 // GET all
 app.get("/api/admin/news", (req, res) => {
   try { res.json(readNewsDB()) }
+  catch (e) { res.status(500).json({ error: "Failed" }) }
+});
+
+// GET Public endpoint - filter active elements - not used yet on the web app
+app.get("/api/news", (req, res) => {
+  try { 
+    const db = readNewsDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
+  }
   catch (e) { res.status(500).json({ error: "Failed" }) }
 });
 
@@ -824,34 +788,28 @@ app.delete("/api/admin/news/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
-// manage products
-
-
-
-
-const productStorage = multer.diskStorage({
-  destination: path.join(__dirname, "uploads/products"),
-  filename: (req, file, cb) => {
-    const id = crypto.randomUUID();
-    const ext = path.extname(file.originalname);
-    cb(null, id + ext);
+// ================= Manage Products
+// GET all products
+app.get("/api/admin/products", (req, res) => {
+  try { 
+    res.json(readProductDB());
+  } catch (e) { 
+    res.status(500).json({ error: "Failed" });
   }
 });
-const uploadProduct = multer({ storage: productStorage });
 
-
-// GET all
-app.get("/api/admin/products", (req, res) => {
-  try { res.json(readProductDB()) }
-  catch (e) { res.status(500).json({ error: "Failed" }) }
-});
-
+// GET Public endpoint - filter active elements
 app.get("/api/products", (req, res) => {
-  try { res.json(readProductDB()) }
-  catch (e) { res.status(500).json({ error: "Failed" }) }
+  try { 
+    const db = readProductDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
+  } catch (e) { 
+    res.status(500).json({ error: "Failed" });
+  }
 });
 
-// POST create
+// POST create product
 app.post("/api/admin/products", uploadProduct.single("image"), (req, res) => {
   try {
     const { title, website, status } = req.body;
@@ -874,7 +832,7 @@ app.post("/api/admin/products", uploadProduct.single("image"), (req, res) => {
   } catch (e) { res.status(500).json({ error: "Create failed" }) }
 });
 
-// PATCH update
+// PATCH update product
 app.patch("/api/admin/products/:id", uploadProduct.single("image"), (req, res) => {
   try {
     const { id } = req.params;
@@ -894,7 +852,7 @@ app.patch("/api/admin/products/:id", uploadProduct.single("image"), (req, res) =
   } catch (e) { res.status(500).json({ error: "Update failed" }) }
 });
 
-// DELETE
+// DELETE product
 app.delete("/api/admin/products/:id", (req, res) => {
   try {
     const { id } = req.params;
@@ -907,50 +865,11 @@ app.delete("/api/admin/products/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
-// manage members
-
-
-
-
-// GET all
+// ================= Manage Members
+// GET all members (for now, only read members data)
 app.get("/api/admin/members", (req, res) => {
   try { res.json(readMembersDB()) }
   catch (e) { res.status(500).json({ error: "Failed" }) }
-});
-
-// PATCH update
-app.patch("/api/admin/members/:id", (req, res) => {
-  try {
-    const { id } = req.params;
-    const { email, country, registration, activation, status } = req.body;
-
-    const db = readMembersDB();
-    const m = db.find(x => x.id === id);
-    if (!m) return res.status(404).json({ error: "Not found" });
-
-    m.email = email ?? m.email;
-    m.country = country ?? m.country;
-    m.registration = registration ?? m.registration;
-    m.activation = activation ?? m.activation;
-    m.status = status ?? m.status;
-    m.updatedAt = new Date().toISOString();
-
-    writeMembersDB(db);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: "Update failed" }) }
-});
-
-// DELETE
-app.delete("/api/admin/members/:id", (req, res) => {
-  try {
-    const { id } = req.params;
-    let db = readMembersDB();
-    const idx = db.findIndex(x => x.id === id);
-    if (idx === -1) return res.status(404).json({ error: "Not found" });
-    db.splice(idx, 1);
-    writeMembersDB(db);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
 // ================= USER REGISTRATION & AUTH =================
@@ -958,26 +877,16 @@ app.delete("/api/admin/members/:id", (req, res) => {
 app.post("/api/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    
     // Validate inputs
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
     if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
-    
-    // Check if email exists in members.json
-    const members = readMembersDB();
-    if (members.find(m => m.email === email)) {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-    
     // Check if email already has a user account
     const users = readUsersDB();
     if (users.find(u => u.email === email)) {
       return res.status(400).json({ error: "Email already registered" });
     }
-    
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    
     // Create user record
     const user = {
       id: crypto.randomUUID(),
@@ -987,8 +896,7 @@ app.post("/api/register", async (req, res) => {
     };
     
     users.push(user);
-    writeUsersDB(users);
-
+    
     // Try to add contact to Brevo (non-blocking)
     if (BREVO_API_KEY) {
       (async () => {
@@ -1019,8 +927,6 @@ app.post("/api/register", async (req, res) => {
             },
             timeout: 5000
           });
-          
-          console.log('Brevo contact created successfully:', email);
         } catch (err) {
           // Handle specific Brevo errors
           const errorData = err.response?.data;
@@ -1029,7 +935,6 @@ app.post("/api/register", async (req, res) => {
             status: err.response?.status,
             data: errorData
           });
-          
           // Handle specific error cases
           if (errorData?.code === 'duplicate_parameter') {
             console.log('Contact already exists in Brevo');
@@ -1037,7 +942,8 @@ app.post("/api/register", async (req, res) => {
         }
       })();
     }
-
+    // critical : must do write operation after processing await operations
+    writeUsersDB(users);
     res.json({ success: true, message: "Registration successful" });
   } catch (e) {
     console.error("Registration error:", e);
@@ -1049,27 +955,20 @@ app.post("/api/register", async (req, res) => {
 app.post("/api/login", async (req,res)=>{
   try{
     const {email, password} = req.body;
-    
     // Validate inputs
     if(!email || !password) return res.status(400).json({error:"Email and password required"});
-    
     // Check if user exists
     const users = readUsersDB();
     const user = users.find(u => u.email === email);
-    
     if(!user) return res.status(401).json({error:"Invalid email or password"});
-    
     // Verify password
     const passwordMatch = await bcrypt.compare(password, user.password);
-    
     if(!passwordMatch) return res.status(401).json({error:"Invalid email or password"});
-    
     // Create session
     req.session.userId = user.id;
     req.session.userEmail = user.email;
     // mark admin session when email matches ADMIN_EMAIL
     req.session.isAdmin = (user.email === ADMIN_EMAIL);
-
     res.json({success:true, message:"Login successful", admin: !!req.session.isAdmin});
   }catch(e){
     console.error(e);
@@ -1087,6 +986,33 @@ app.post("/api/logout", (req,res)=>{
   });
 });
 
+// recover an account by changing password and sending in plaint text to the user email
+app.post('/api/recoverAccount', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const users = readUsersDB();
+    const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+    if (userIndex === -1) {
+      return res.status(404).json({ success: false, error: 'No account found with this email' });
+    }
+    const newPlainPassword = 'RHM-' + crypto.randomBytes(6).toString('hex');
+    const newHashedPassword = await bcrypt.hash(newPlainPassword, 10);
+    users[userIndex].password = newHashedPassword;
+    users[userIndex].resetAt = new Date().toISOString();
+    await transporter.verify();
+    await transporter.sendMail({
+      from: `"REEF Magazine" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Your REEF Clubs password',
+      html: `<p>Your new password is : ${newPlainPassword}</p>`
+    });
+    writeUsersDB(users);
+    res.json({ success: true, message: 'Email sent!' });
+  } catch (err) {
+    res.json({ success: false, error: err.message, code: err.code });
+  }
+});
+
 // GET current user info (protected)
 app.get("/api/user", (req,res)=>{
   if(!req.session.userId) return res.status(401).json({error:"Not logged in"});
@@ -1100,38 +1026,7 @@ app.get("/api/user", (req,res)=>{
   });
 });
 
-// Change from app.get to app.post
-app.post('/api/recoverAccount', async (req, res) => {
-  try {
-    const { email } = req.body;  // Now this will work!
-    
-    const users = readUsersDB();
-    const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-    if (userIndex === -1) {
-      return res.status(404).json({ success: false, error: 'No account found with this email' });
-    }
-    const newPlainPassword = 'RHM-' + crypto.randomBytes(6).toString('hex');
-    const newHashedPassword = await bcrypt.hash(newPlainPassword, 10);
-    users[userIndex].password = newHashedPassword;
-    users[userIndex].resetAt = new Date().toISOString();
-    
-    await transporter.verify();
-    await transporter.sendMail({
-      from: `"REEF Magazine" <${process.env.EMAIL_USER}>`,
-      to: email,  // Send to the requested email, not your own
-      subject: 'Your REEF Clubs password',
-      html: `<p>Your new password is : ${newPlainPassword}</p>`
-    });
-    writeUsersDB(users);
-    res.json({ success: true, message: 'Email sent!' });
-  } catch (err) {
-    res.json({ success: false, error: err.message, code: err.code });
-  }
-});
-
-// recover an account by changing password and sending in plaint text to the user email
-
-/* ================= PAGES ================= */
+// ================= PAGES =================
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
 app.get('/admin', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin.html'));
@@ -1152,5 +1047,5 @@ app.get('/flipbook/:id', (req, res) => {
   }
 });
 
-/* ================= START SERVER ================= */
+// ================= START SERVER =================
 app.listen(PORT, () => console.log(`Server running at ${BASE_URL}`));
