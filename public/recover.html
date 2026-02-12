@@ -2,7 +2,7 @@
 <html>
 
     <head>
-        <title>RHM - Login</title>
+        <title>RHM - Reset Password</title>
         <link rel="icon" type="image/png" href="/img/favicon.ico">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="/style/clubs.css" />
@@ -58,28 +58,26 @@
                     <div class="col-md-5">
                         <div class="card shadow-sm">
                             <div class="card-body p-5">
-                                <h2 class="card-title text-center mb-4">Login</h2>
-                                <form id="loginForm">
+                                <h2 class="card-title text-center mb-4">Account Recovery</h2>
+                                <form id="recoverForm">
                                     <div class="mb-3">
                                         <label for="email" class="form-label">Email</label>
                                         <input type="email" class="form-control" id="email" name="email"
                                             placeholder="your@email.com" required>
                                     </div>
-                                    <div class="mb-3">
-                                        <label for="password" class="form-label">Password</label>
-                                        <input type="password" class="form-control" id="password" name="password"
-                                            placeholder="Enter password" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                                    <button type="submit" class="btn btn-primary w-100">Receive email</button>
                                 </form>
                                 <div id="loginMessage" class="alert mt-3" style="display:none;"></div>
                                 <div class="text-center mt-3">
                                     <p class="text-muted">Don't have an account? <a href="/subscribe">Register here</a>
-                                    <p class="text-muted">Forget password? <a href="/recover-account">Recover here</a>
                                     </p>
                                 </div>
                                 <div class="text-center mt-3">
-                                    <p class="text-success"><small><b>Please note that we have updated our login system. If you had an account before, please register again using your previous email account.</b></small></p>
+                                    <p class="text-muted"><a href="/login">Login here</a>
+                                    </p>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <p class="text-danger"><small>Please note that we have updated our login system. If you had an account before, please register again using your previous email account.</small></p>
                                 </div>
                             </div>
                         </div>
@@ -107,44 +105,39 @@
         <script src="./js/sponsorsSwiper.js"></script>
         <script src="./js/auth.js"></script>
         <script>
-            document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            document.getElementById("recoverForm").addEventListener("submit", async (e) => {
                 e.preventDefault();
-
                 const email = document.getElementById("email").value.trim();
-                const password = document.getElementById("password").value;
-                const messageEl = document.getElementById("loginMessage");
-
+                const btn = e.target.querySelector("button[type=submit]");
+                const msg = document.getElementById("loginMessage");
+                btn.disabled = true;
+                btn.textContent = "Sending...";
+                msg.style.display = "none";
                 try {
-                    const res = await fetch("/api/login", {
+                    const response = await fetch("/api/recoverAccount", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ email, password })
+                        headers: { 
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ email })
                     });
-
-                    const data = await res.json();
-
-                    if (data.success) {
-                        messageEl.className = "alert alert-success";
-                        messageEl.innerHTML = "Login successful! Redirecting...";
-                        messageEl.style.display = "block";
-
-                        // Redirect to admin or home page after 1 second
-                        setTimeout(() => {
-                            if (data.admin) window.location.href = "/admin";
-                            else window.location.href = "/";
-                        }, 1000);
+                    const data = await response.json();
+                    if (response.ok && data.success) {
+                        btn.textContent = "Check your inbox!";
+                        btn.classList.replace("btn-primary", "btn-success");
                     } else {
-                        messageEl.className = "alert alert-danger";
-                        messageEl.innerHTML = data.error || "Login failed";
-                        messageEl.style.display = "block";
+                        throw new Error(data.error || 'Failed to send recovery email');
                     }
                 } catch (error) {
-                    messageEl.className = "alert alert-danger";
-                    messageEl.innerHTML = "Network error: " + error.message;
-                    messageEl.style.display = "block";
+                    btn.disabled = false;
+                    btn.textContent = "Receive email";
+                    btn.classList.remove("btn-success", "btn-danger");
+                    btn.classList.add("btn-primary");
+                    msg.style.display = "block";
+                    msg.className = "alert alert-danger mt-3";
+                    msg.textContent = error.message;
                 }
             });
         </script>
     </body>
-
 </html>

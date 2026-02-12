@@ -7,6 +7,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
@@ -19,6 +20,15 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_LIST_ID = process.env.BREVO_LIST_ID ? Number(process.env.BREVO_LIST_ID) : undefined;
 
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: Number(process.env.EMAIL_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 /* ================= SESSION MIDDLEWARE ================= */
 app.use(session({
     secret: process.env.SESSION_SECRET || "reef_magazine_secret_2024",
@@ -31,21 +41,63 @@ app.use(session({
     }
 }));
 
-/* ================= DIRECTORIES ================= */
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+// ================= DIRECTORIES =================
 const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'flipbooks.json');
-const COVER_DIR = path.join(__dirname, 'public/covers');
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const COVER_DIR = path.join(__dirname, 'uploads/covers');
 const SPLITTED_DIR = path.join(__dirname, 'uploads/splitted');
+const SPONSORS_DIR = path.join(__dirname, 'uploads/sponsors');
+const DB_FILE = path.join(DATA_DIR, 'flipbooks.json');
+const ADV_FILE = path.join(DATA_DIR, "advertisers.json");
+const SPONSOR_FILE = path.join(DATA_DIR, "sponsors.json");
+const REEF_FILE = path.join(DATA_DIR, "reefclubs.json");
+const EVENT_FILE = path.join(DATA_DIR, "events.json");
+const NEWS_FILE = path.join(DATA_DIR, "news.json");
+const PRODUCT_FILE = path.join(DATA_DIR, "products.json");
+const MEMBERS_FILE = path.join(DATA_DIR, "members.json");
+const USERS_FILE = path.join(DATA_DIR,"users.json");
 
-// [UPLOAD_DIR, DATA_DIR, COVER_DIR, SPLITTED_DIR].forEach(d => { if(!fs.existsSync(d)) fs.mkdirSync(d,{recursive:true}) });
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '[]');
+[UPLOAD_DIR, DATA_DIR, COVER_DIR, SPONSORS_DIR, SPLITTED_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }) });
+[DB_FILE, ADV_FILE, SPONSOR_FILE, REEF_FILE, EVENT_FILE, NEWS_FILE, PRODUCT_FILE, MEMBERS_FILE, USERS_FILE].forEach(d => { if (!fs.existsSync(d)) fs.writeFileSync(d, "[]") });
 
-/* ================= HELPERS ================= */
+// ================= HELPERS =================
 function readDB() { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }
 function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)) }
+function readAdvDB() { return JSON.parse(fs.readFileSync(ADV_FILE)) }
+function writeAdvDB(data) { fs.writeFileSync(ADV_FILE, JSON.stringify(data, null, 2)) }
+function readSponsorDB() { return JSON.parse(fs.readFileSync(SPONSOR_FILE)) }
+function writeSponsorDB(data) { fs.writeFileSync(SPONSOR_FILE, JSON.stringify(data, null, 2)) }
+function readReefDB() { return JSON.parse(fs.readFileSync(REEF_FILE)) }
+function writeReefDB(data) { fs.writeFileSync(REEF_FILE, JSON.stringify(data, null, 2)) }
+function readEventDB() { return JSON.parse(fs.readFileSync(EVENT_FILE));}
+function writeEventDB(data) { fs.writeFileSync(EVENT_FILE, JSON.stringify(data, null, 2)); }
+function readNewsDB() { return JSON.parse(fs.readFileSync(NEWS_FILE)) }
+function writeNewsDB(data) { fs.writeFileSync(NEWS_FILE, JSON.stringify(data, null, 2)) }
+function readProductDB() { return JSON.parse(fs.readFileSync(PRODUCT_FILE)) }
+function writeProductDB(data) { fs.writeFileSync(PRODUCT_FILE, JSON.stringify(data, null, 2)) }
+function readMembersDB() { return JSON.parse(fs.readFileSync(MEMBERS_FILE)) }
+function writeMembersDB(data) { fs.writeFileSync(MEMBERS_FILE, JSON.stringify(data, null, 2)) }
+function readUsersDB(){ return JSON.parse(fs.readFileSync(USERS_FILE)) }
+// async version: (to promise time when many concurrent operations happen)
+function writeUsersDB(data) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (err) {
+    console.error('Failed to write users DB:', err);
+    throw err; // Re-throw to be caught in route
+  }
+}
 
-/* ================= STATIC / PROTECTED PDF ================= */
+// Middleware to check if user is logged in
+function isLoggedIn(req, res, next){
+  if(!req.session.userId) {
+    return res.sendFile(path.join(__dirname, 'public/login.html'));
+  }
+  next();
+}
+
+// =================  PROTECTED STATIC HTML =================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -55,7 +107,7 @@ app.use('/api/admin', (req, res, next) => {
   return res.status(401).json({ error: 'Admin auth required' });
 });
 
-// Protect /admin.html from direct access
+// Protect /admin.html and other subs from direct URL access
 app.get('/admin.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin.html'));
   return res.redirect('/login');
@@ -103,10 +155,7 @@ app.get('/uploads/:filename', (req, res) => {
   res.sendFile(filePath);
 });
 
-/* ================= MULTER ================= */
-const SPONSORS_DIR = path.join(__dirname, 'uploads/sponsors');
-[UPLOAD_DIR, DATA_DIR, COVER_DIR, SPONSORS_DIR, SPLITTED_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }) });
-
+// ================ MULTER =================
 // Create storage for PDF + Cover + Sponsor images
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -123,7 +172,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-/* ================= ADMIN UPLOAD ================= */
+// ================= ADMIN API =================
+// ================= Manage magazines
+// upload a magazine
 app.post('/api/admin/magazines', upload.fields([
   { name: 'pdf', maxCount: 1 },
   { name: 'splitted_pdf', maxCount: 1 },
@@ -141,10 +192,7 @@ app.post('/api/admin/magazines', upload.fields([
 
     const hzResp = await axios.post('https://heyzine.com/api1/rest', {
       pdf: pdfUrl,
-      client_id: HEYZINE_CLIENT_ID,
-      download: 0,
-      print: 0,
-      share: 0
+      client_id: HEYZINE_CLIENT_ID
     }, {
       headers: { Authorization: `Bearer ${HEYZINE_API_KEY}`, 'Content-Type': 'application/json' }
     });
@@ -166,13 +214,13 @@ app.post('/api/admin/magazines', upload.fields([
       year: Number(year),
       featured: featured === 'true',
       status: status || 'active',
-      cover: `/covers/${coverFile.filename}`,
+      pdf: `/uploads/${pdfFile.filename}`,
+      cover: `/uploads/covers/${coverFile.filename}`,
       heyzineId: hz.id,
       embedUrl,
       createdAt: new Date().toISOString(),
       splittedPdf: splittedPath
     };
-
 
     const db = readDB();
 
@@ -194,7 +242,7 @@ app.post('/api/admin/magazines', upload.fields([
   }
 });
 
-/* ================= PUBLIC API ================= */
+// return embed URL for all magazines (with allowed options by Heyzine config / client_id configs)
 app.get('/api/magazines', (req, res) => {
   const db = readDB();
   const active = db.filter(m => m.status === 'active').sort((a, b) => {
@@ -206,6 +254,7 @@ app.get('/api/magazines', (req, res) => {
   res.json(active);
 });
 
+// return the json from flipbook database
 app.get('/api/flipbook/:id', (req, res) => {
   const db = readDB();
   const fb = db.find(r => r.id === req.params.id);
@@ -213,6 +262,7 @@ app.get('/api/flipbook/:id', (req, res) => {
   res.json(fb);
 });
 
+// return embed html code to fetch in iframe without download option (for all website visitors)
 app.get('/api/featuredIssue', (req, res) => {
   const db = readDB();
   const featured = db.find(m => m.featured);
@@ -236,9 +286,6 @@ app.get('/api/flipbook/:id/visitor', (req, res) => {
   const embedUrl = `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${fb.heyzineId}&k=${clientId}&d=0`;
   res.json({ embedUrl });
 });
-
-// ================= ADMIN API ================= */
-// manage magazines
 
 // PATCH: Update magazine metadata (title, year, status, featured)
 app.patch('/api/admin/magazines/:id', (req, res) => {
@@ -275,6 +322,7 @@ app.patch('/api/admin/magazines/:id', (req, res) => {
     res.status(500).json({ error: 'Update failed' });
   }
 });
+
 // DELETE magazine
 app.delete('/api/admin/magazines/:id', (req, res) => {
   const { id } = req.params;
@@ -282,8 +330,55 @@ app.delete('/api/admin/magazines/:id', (req, res) => {
   try {
     let db = readDB();
     const index = db.findIndex(m => m.id === id);
-    if (index === -1) return res.status(404).json({ error: 'Magazine not found' });
 
+    if (index === -1) {
+      return res.status(404).json({ error: 'Magazine not found' });
+    }
+
+    const magazine = db[index];
+
+    // Delete cover
+    if (magazine.cover) {
+      const coverPath = path.join(__dirname, magazine.cover);
+      if (fs.existsSync(coverPath)) {
+        fs.unlinkSync(coverPath);
+      }
+    }
+
+    // Delete main PDF
+    if (magazine.heyzineId) {
+      axios.post('https://heyzine.com/api1/flipbook-delete', {
+          id: magazine.heyzineId
+        }, {
+          headers: { 
+            Authorization: `Bearer ${HEYZINE_API_KEY}`, 
+            'Content-Type': 'application/json' 
+          }
+        });
+    }
+
+    // Delete splitted PDF
+    if (magazine.splittedPdf) {
+      const splittedPath = path.join(__dirname, magazine.splittedPdf);
+      if (fs.existsSync(splittedPath)) {
+        fs.unlinkSync(splittedPath);
+      }
+    }
+
+    // Also delete original uploaded PDF if stored
+    const uploadPdfPath = path.join(__dirname, 'uploads', `${magazine.heyzineId}.pdf`);
+    if (fs.existsSync(uploadPdfPath)) {
+      fs.unlinkSync(uploadPdfPath);
+    }
+
+    if (magazine.pdf) {
+      const pdfPath = path.join(__dirname, magazine.pdf);
+      if (fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+      }
+    }
+
+    // Remove from DB
     db.splice(index, 1);
     writeDB(db);
 
@@ -295,13 +390,10 @@ app.delete('/api/admin/magazines/:id', (req, res) => {
   }
 });
 
-// manage advertisers
+// ================= Manage advertisers
 
-const ADV_FILE = path.join(DATA_DIR, "advertisers.json");
-if (!fs.existsSync(ADV_FILE)) fs.writeFileSync(ADV_FILE, "[]");
 
-function readAdvDB() { return JSON.parse(fs.readFileSync(ADV_FILE)) }
-function writeAdvDB(data) { fs.writeFileSync(ADV_FILE, JSON.stringify(data, null, 2)) }
+
 
 // GET all
 app.get("/api/admin/advertisers", (req, res) => {
@@ -363,11 +455,9 @@ app.delete("/api/admin/advertisers/:id", (req, res) => {
 
 // manage sponsors
 
-const SPONSOR_FILE = path.join(DATA_DIR, "sponsors.json");
-if (!fs.existsSync(SPONSOR_FILE)) fs.writeFileSync(SPONSOR_FILE, "[]");
 
-function readSponsorDB() { return JSON.parse(fs.readFileSync(SPONSOR_FILE)) }
-function writeSponsorDB(data) { fs.writeFileSync(SPONSOR_FILE, JSON.stringify(data, null, 2)) }
+
+
 
 
 // GET all
@@ -483,11 +573,9 @@ app.delete("/api/admin/sponsors/:id", (req, res) => {
 
 // manage reefclubs
 
-const REEF_FILE = path.join(DATA_DIR, "reefclubs.json");
-if (!fs.existsSync(REEF_FILE)) fs.writeFileSync(REEF_FILE, "[]");
 
-function readReefDB() { return JSON.parse(fs.readFileSync(REEF_FILE)) }
-function writeReefDB(data) { fs.writeFileSync(REEF_FILE, JSON.stringify(data, null, 2)) }
+
+
 
 // GET allac
 app.get("/api/admin/reefclubs", (req, res) => {
@@ -562,16 +650,9 @@ app.delete("/api/admin/reefclubs/:id", (req, res) => {
 
 // ================= EVENTS =================
 
-const EVENT_FILE = path.join(DATA_DIR, "events.json");
-if (!fs.existsSync(EVENT_FILE)) fs.writeFileSync(EVENT_FILE, "[]");
 
-function readEventDB() {
-  return JSON.parse(fs.readFileSync(EVENT_FILE));
-}
 
-function writeEventDB(data) {
-  fs.writeFileSync(EVENT_FILE, JSON.stringify(data, null, 2));
-}
+
 
 // GET all
 app.get("/api/admin/events", (req, res) => {
@@ -679,11 +760,9 @@ app.delete("/api/admin/events/:id", (req, res) => {
 
 // manage news
 
-const NEWS_FILE = path.join(DATA_DIR, "news.json");
-if (!fs.existsSync(NEWS_FILE)) fs.writeFileSync(NEWS_FILE, "[]");
 
-function readNewsDB() { return JSON.parse(fs.readFileSync(NEWS_FILE)) }
-function writeNewsDB(data) { fs.writeFileSync(NEWS_FILE, JSON.stringify(data, null, 2)) }
+
+
 
 // GET all
 app.get("/api/admin/news", (req, res) => {
@@ -747,11 +826,11 @@ app.delete("/api/admin/news/:id", (req, res) => {
 
 // manage products
 
-const PRODUCT_FILE = path.join(DATA_DIR, "products.json");
-if (!fs.existsSync(PRODUCT_FILE)) fs.writeFileSync(PRODUCT_FILE, "[]");
+
+
 
 const productStorage = multer.diskStorage({
-  destination: path.join(__dirname, "public/products"),
+  destination: path.join(__dirname, "uploads/products"),
   filename: (req, file, cb) => {
     const id = crypto.randomUUID();
     const ext = path.extname(file.originalname);
@@ -760,8 +839,6 @@ const productStorage = multer.diskStorage({
 });
 const uploadProduct = multer({ storage: productStorage });
 
-function readProductDB() { return JSON.parse(fs.readFileSync(PRODUCT_FILE)) }
-function writeProductDB(data) { fs.writeFileSync(PRODUCT_FILE, JSON.stringify(data, null, 2)) }
 
 // GET all
 app.get("/api/admin/products", (req, res) => {
@@ -786,7 +863,7 @@ app.post("/api/admin/products", uploadProduct.single("image"), (req, res) => {
       title,
       website,
       status,
-      image: "/products/" + file.filename,
+      image: "/uploads/products/" + file.filename,
       createdAt: new Date().toISOString()
     };
 
@@ -809,7 +886,7 @@ app.patch("/api/admin/products/:id", uploadProduct.single("image"), (req, res) =
     p.title = title ?? p.title;
     p.website = website ?? p.website;
     p.status = status ?? p.status;
-    if (req.file) p.image = "/products/" + req.file.filename;
+    if (req.file) p.image = "/uploads/products/" + req.file.filename;
     p.updatedAt = new Date().toISOString();
 
     writeProductDB(db);
@@ -832,11 +909,8 @@ app.delete("/api/admin/products/:id", (req, res) => {
 
 // manage members
 
-const MEMBERS_FILE = path.join(DATA_DIR, "members.json");
-if (!fs.existsSync(MEMBERS_FILE)) fs.writeFileSync(MEMBERS_FILE, "[]");
 
-function readMembersDB() { return JSON.parse(fs.readFileSync(MEMBERS_FILE)) }
-function writeMembersDB(data) { fs.writeFileSync(MEMBERS_FILE, JSON.stringify(data, null, 2)) }
+
 
 // GET all
 app.get("/api/admin/members", (req, res) => {
@@ -880,13 +954,6 @@ app.delete("/api/admin/members/:id", (req, res) => {
 });
 
 // ================= USER REGISTRATION & AUTH =================
-
-const USERS_FILE = path.join(DATA_DIR,"users.json");
-if(!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE,"[]");
-
-function readUsersDB(){ return JSON.parse(fs.readFileSync(USERS_FILE)) }
-function writeUsersDB(data){ fs.writeFileSync(USERS_FILE,JSON.stringify(data,null,2)) }
-
 // POST register - public endpoint
 app.post("/api/register", async (req, res) => {
   try {
@@ -1033,16 +1100,36 @@ app.get("/api/user", (req,res)=>{
   });
 });
 
-// Middleware to check if user is logged in
-function isLoggedIn(req, res, next){
-  if(!req.session.userId) {
-    return res.sendFile(path.join(__dirname, 'public/login.html'));
+// Change from app.get to app.post
+app.post('/api/recoverAccount', async (req, res) => {
+  try {
+    const { email } = req.body;  // Now this will work!
+    
+    const users = readUsersDB();
+    const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+    if (userIndex === -1) {
+      return res.status(404).json({ success: false, error: 'No account found with this email' });
+    }
+    const newPlainPassword = 'RHM-' + crypto.randomBytes(6).toString('hex');
+    const newHashedPassword = await bcrypt.hash(newPlainPassword, 10);
+    users[userIndex].password = newHashedPassword;
+    users[userIndex].resetAt = new Date().toISOString();
+    
+    await transporter.verify();
+    await transporter.sendMail({
+      from: `"REEF Magazine" <${process.env.EMAIL_USER}>`,
+      to: email,  // Send to the requested email, not your own
+      subject: 'Your REEF Clubs password',
+      html: `<p>Your new password is : ${newPlainPassword}</p>`
+    });
+    writeUsersDB(users);
+    res.json({ success: true, message: 'Email sent!' });
+  } catch (err) {
+    res.json({ success: false, error: err.message, code: err.code });
   }
-  next();
-}
+});
 
-// serve products to index
-
+// recover an account by changing password and sending in plaint text to the user email
 
 /* ================= PAGES ================= */
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public/index.html')));
@@ -1052,6 +1139,7 @@ app.get('/admin', (req, res) => {
 });
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.html')));
 app.get('/subscribe', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
+app.get('/recover-account', (req, res) => res.sendFile(path.join(__dirname, 'public/recover.html')));
 app.get('/advertisers', (req, res) => res.sendFile(path.join(__dirname, 'public/advertisers.html')));
 app.get('/clubs', (req, res) => res.sendFile(path.join(__dirname, 'public/clubs.html')));
 app.get('/archive', isLoggedIn, (req, res) => res.sendFile(path.join(__dirname, 'public/archive.html')));
