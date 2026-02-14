@@ -10,6 +10,7 @@ const session = require('express-session');
 const nodemailer = require('nodemailer');
 
 const app = express();
+app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -20,6 +21,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_LIST_ID = process.env.BREVO_LIST_ID ? Number(process.env.BREVO_LIST_ID) : undefined;
 
+const FileStore = require('session-file-store')(session);
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
   port: Number(process.env.EMAIL_PORT) || 587,
@@ -35,12 +37,19 @@ app.use(session({
     secret: process.env.SESSION_SECRET || "reef_magazine_secret_2024",
     resave: false,
     saveUninitialized: false,
-    cookie: { 
+    store: new FileStore({
+        path: path.join(__dirname, 'data/sessions'),  // persist sessions to disk
+        ttl: 86400,       // 24 hours in seconds
+        retries: 1
+    }),
+    cookie: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        secure: process.env.NODE_ENV === 'production',  // works correctly with trust proxy
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',  // to fix some prod errors
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -61,9 +70,11 @@ const NEWS_FILE = path.join(DATA_DIR, "news.json");
 const PRODUCT_FILE = path.join(DATA_DIR, "products.json");
 const MEMBERS_FILE = path.join(DATA_DIR, "members.json");
 const USERS_FILE = path.join(DATA_DIR,"users.json");
+const STORES_FILE = path.join(DATA_DIR,"stores.json");
+const SESSIONS_DIR = path.join(__dirname, 'data/sessions');
 
-[UPLOAD_DIR, DATA_DIR, COVER_DIR, SPONSORS_DIR, SPLITTED_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }) });
-[DB_FILE, ADV_FILE, SPONSOR_FILE, REEF_FILE, EVENT_FILE, NEWS_FILE, PRODUCT_FILE, MEMBERS_FILE, USERS_FILE].forEach(d => { if (!fs.existsSync(d)) fs.writeFileSync(d, "[]") });
+[UPLOAD_DIR, DATA_DIR, COVER_DIR, SPONSORS_DIR, SPLITTED_DIR, SESSIONS_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }) });
+[DB_FILE, ADV_FILE, SPONSOR_FILE, REEF_FILE, EVENT_FILE, NEWS_FILE, PRODUCT_FILE, MEMBERS_FILE, USERS_FILE, STORES_FILE].forEach(d => { if (!fs.existsSync(d)) fs.writeFileSync(d, "[]") });
 
 // ================= HELPERS =================
 function readDB() { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }
@@ -78,6 +89,8 @@ function readEventDB() { return JSON.parse(fs.readFileSync(EVENT_FILE));}
 function writeEventDB(data) { fs.writeFileSync(EVENT_FILE, JSON.stringify(data, null, 2)); }
 function readNewsDB() { return JSON.parse(fs.readFileSync(NEWS_FILE)) }
 function writeNewsDB(data) { fs.writeFileSync(NEWS_FILE, JSON.stringify(data, null, 2)) }
+function readStoresDB() { return JSON.parse(fs.readFileSync(STORES_FILE)) }
+function writeStoresDB(data) { fs.writeFileSync(STORES_FILE, JSON.stringify(data, null, 2)) }
 function readProductDB() { return JSON.parse(fs.readFileSync(PRODUCT_FILE)) }
 function writeProductDB(data) { fs.writeFileSync(PRODUCT_FILE, JSON.stringify(data, null, 2)) }
 function readMembersDB() { return JSON.parse(fs.readFileSync(MEMBERS_FILE)) }
@@ -142,6 +155,10 @@ app.get('/admin/members.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/members.html'));
   return res.redirect('/login');
 });
+app.get('/admin/stores.html', (req, res) => {
+  if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/stores.html'));
+  return res.redirect('/login');
+});
 
 app.get('/uploads/:filename', (req, res) => {
   if (req.query.token !== PROTECTION_TOKEN) return res.status(403).send("Unauthorized");
@@ -152,27 +169,28 @@ app.get('/uploads/:filename', (req, res) => {
 
 // ================ MULTER =================
 // Create storage for PDF + Cover + Sponsor images
-const dirMap = {
-  'pdf': UPLOAD_DIR,
-  'cover': COVER_DIR,
-  'image': SPONSORS_DIR,
-  'product_image': path.join(__dirname, "uploads/products"),
-  'splitted_pdf': SPLITTED_DIR
-};
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // If it's the product route using the 'image' field, we target the products folder
-    if (req.path.includes('/products') && file.fieldname === 'image') {
-      cb(null, path.join(__dirname, "uploads/products"));
-    } else {
-      cb(null, dirMap[file.fieldname] || UPLOAD_DIR);
-    }
+    if (file.fieldname === 'pdf') cb(null, UPLOAD_DIR);
+    else if (file.fieldname === 'cover') cb(null, COVER_DIR);
+    else if (file.fieldname === 'image') cb(null, SPONSORS_DIR);
+    else if (file.fieldname === 'splitted_pdf') cb(null, SPLITTED_DIR);
+    else cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
     const id = crypto.randomUUID();
     cb(null, id + path.extname(file.originalname));
   }
 });
+const productStorage = multer.diskStorage({
+  destination: path.join(__dirname, "uploads/products"),
+  filename: (req, file, cb) => {
+    const id = crypto.randomUUID();
+    const ext = path.extname(file.originalname);
+    cb(null, id + ext);
+  }
+});
+const uploadProduct = multer({ storage: productStorage });
 const upload = multer({ storage });
 
 // ================= ADMIN API =================
@@ -788,6 +806,75 @@ app.delete("/api/admin/news/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
+// ================= Manage Stores
+// GET all
+app.get("/api/admin/stores", (req, res) => {
+  try { res.json(readStoresDB()) }
+  catch (e) { res.status(500).json({ error: "Failed" }) }
+});
+
+// GET Public endpoint - filter active elements - not used yet on the web app
+app.get("/api/stores", (req, res) => {
+  try { 
+    const db = readStoresDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
+  }
+  catch (e) { res.status(500).json({ error: "Failed" }) }
+});
+
+// POST create
+app.post("/api/admin/stores", (req, res) => {
+  try {
+    const { store_name, status, address, mapsURL } = req.body;
+
+    const record = {
+      id: crypto.randomUUID(),
+      store_name,
+      status,
+      address: address || "",
+      mapsURL: mapsURL || ""
+    };
+
+    const db = readStoresDB();
+    db.push(record);
+    writeStoresDB(db);
+    res.json({ success: true, record });
+  } catch (e) { res.status(500).json({ error: "Create failed" }) }
+});
+
+// PATCH update
+app.patch("/api/admin/stores/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { store_name, status, address, mapsURL } = req.body;
+    const db = readStoresDB();
+    const n = db.find(x => x.id === id);
+    if (!n) return res.status(404).json({ error: "Not found" });
+
+    n.store_name = store_name ?? n.store_name;
+    n.status = status ?? n.status;
+    n.address = address ?? n.address;
+    n.mapsURL = mapsURL ?? n.mapsURL;
+
+    writeStoresDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: "Update failed" }) }
+});
+
+// DELETE
+app.delete("/api/admin/stores/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let db = readStoresDB();
+    const idx = db.findIndex(x => x.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+    db.splice(idx, 1);
+    writeStoresDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: "Delete failed" }) }
+});
+
 // ================= Manage Products
 // GET all products
 app.get("/api/admin/products", (req, res) => {
@@ -1003,7 +1090,7 @@ app.post('/api/recoverAccount', async (req, res) => {
     await transporter.sendMail({
       from: `"REEF Magazine" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Your REEF Clubs password',
+      subject: 'Your RHM password reset',
       html: `<p>Your new password is : ${newPlainPassword}</p>`
     });
     writeUsersDB(users);
@@ -1036,6 +1123,7 @@ app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.
 app.get('/subscribe', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
 app.get('/recover-account', (req, res) => res.sendFile(path.join(__dirname, 'public/recover.html')));
 app.get('/advertisers', (req, res) => res.sendFile(path.join(__dirname, 'public/advertisers.html')));
+app.get('/stores', (req, res) => res.sendFile(path.join(__dirname, 'public/stores.html')));
 app.get('/clubs', (req, res) => res.sendFile(path.join(__dirname, 'public/clubs.html')));
 app.get('/archive', isLoggedIn, (req, res) => res.sendFile(path.join(__dirname, 'public/archive.html')));
 app.get('/subscribe', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
