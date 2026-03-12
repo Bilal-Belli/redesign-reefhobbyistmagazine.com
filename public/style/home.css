@@ -156,53 +156,13 @@ footer a:hover {
     justify-content: center;
 }
 
-/* Add this to your existing CSS - it only adds scroll functionality */
-#eventsContainer {
-    /* overflow-y: auto; */
-    /* Add vertical scrollbar when needed */
-    max-height: 400px;
-    /* Set a fixed height for the scrollable area */
+/* Force equal column heights */
+#currentIssue .row {
+  align-items: stretch !important;
 }
 
-/* Optional: responsive height */
-@media (max-width: 768px) {
-    #eventsContainer {
-        max-height: 300px;
-    }
-}
-
-/* Events section styling */
-#eventsList {
-    height: 100%;
-    min-height: 500px; /* Minimum height for desktop */
-}
-
-/* Scrollable events container */
-.events-scroll-container {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    max-height: 300px; /* Control max height for events */
-    padding-right: 5px;
-}
-
-/* GIF container */
-.events-gif-container {
-    height: 150px; /* Fixed height for GIF */
-    flex-shrink: 0;
-    background: #f0f0f0;
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-/* Event items styling */
-.event-item {
-    margin-bottom: 10px;
-    padding: 12px;
-    background: white;
-    border-radius: 6px;
-    border-left: 3px solid #007bff;
-    cursor: pointer;
-    transition: all 0.2s;
+#currentIssue .col-md-4 {
+  display: flex !important;
 }
 
 .event-item:hover {
@@ -248,6 +208,16 @@ footer a:hover {
     .events-gif-container {
         height: 100px;
     }
+}
+
+.events-scroll-container {
+  min-height: 0; /* CRITICAL: allows flex shrink */
+}
+
+.events-gif-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Optional: Style the scrollbar */
