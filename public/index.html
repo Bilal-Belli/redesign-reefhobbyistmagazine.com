@@ -37,7 +37,7 @@
     <!-- ================= NAVBAR ================= -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-black">
       <div class="container">
-        <a class="navbar-brand" href="/"><img src="./img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+        <a class="navbar-brand" href="/"><img src="./img/logo.jpg" alt="Magazine Logo" style="height: 110px; width: auto;" class="img-fluid"></a>
         <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -123,276 +123,316 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-    <script>
-      // Fetch all data in parallel
-      Promise.all([
-        fetch("/api/magazines").then(r => r.json()),
-        fetch("/api/events").then(r => r.json()),
-        fetch("/api/featuredIssue").then(r => r.json())
-      ])
-        .then(([list, events, featuredIssue]) => {
-          if (!list.length) return;
 
-          const featured = list.find(m => m.featured) || list[0];
-          const archive = list.slice(0, 8);
 
-          /* ================= CURRENT ISSUE ================= */
-          document.getElementById("currentIssue").innerHTML = `
-            <!-- COVER -->
-            <div class="col-md-4 d-flex">
-              <div class="bg-white rounded shadow p-3 w-100 d-flex flex-column">
-                <div class="fw-bold border-bottom pb-2 mb-2">
-                  CURRENT ISSUE
-                </div>
-                <div class="flex-grow-1 d-flex align-items-center justify-content-center">
-                  <img src="${featured.cover}"
-                      class="img-fluid"
-                      style="max-height:100%;object-fit:contain;">
-                </div>
-              </div>
+<script>
+  // Fetch all data in parallel
+  Promise.all([
+    fetch("/api/magazines").then(r => r.json()),
+    fetch("/api/events").then(r => r.json()),
+    fetch("/api/featuredIssue").then(r => r.json())
+  ])
+    .then(([list, events, featuredIssue]) => {
+      if (!list.length) return;
+
+      const featured = list.find(m => m.featured) || list[0];
+      const archive = list.slice(0, 8);
+
+      /* ================= CURRENT ISSUE ================= */
+      document.getElementById("currentIssue").innerHTML = `
+        <!-- COVER -->
+        <div class="col-md-4 d-flex">
+          <div class="bg-white rounded shadow p-3 w-100 d-flex flex-column">
+            <div class="fw-bold border-bottom pb-2 mb-2">
+              CURRENT ISSUE
             </div>
-
-            <!-- PDF PREVIEW -->
-            <div class="col-md-4 d-flex">
-              <div class="bg-white rounded shadow p-3 w-100 d-flex flex-column">
-                <div class="fw-bold border-bottom pb-2 mb-2">
-                  INSIDE THIS ISSUE
-                </div>
-                <div class="flex-grow-1 d-flex align-items-center justify-content-center">
-                  <div class="swiper previewSwiper w-100 h-100">
-                    <div class="swiper-wrapper" id="previewPages"></div>
-                    <div class="swiper-pagination"></div>
-                    <div class="swiper-button-next"></div>
-                    <div class="swiper-button-prev"></div>
-                  </div>
-                </div>
-              </div>
+            <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+              <img src="${featured.cover}"
+                  class="img-fluid"
+                  style="max-height:100%;object-fit:contain;">
             </div>
-
-            <!-- EVENTS -->
-            <div class="col-md-4 d-flex">
-              <div id="eventsList"
-                  class="bg-light rounded shadow p-3 w-100 d-flex flex-column">
-                <div class="fw-bold border-bottom pb-2 mb-2">
-                  UPCOMING EVENTS
-                </div>
-                <div id="eventsContainer"
-                    class="flex-grow-1 overflow-auto">
-                </div>
-              </div>
-            </div>
-          `;
-
-          if (featured.splittedPdf) {
-
-            pdfjsLib.GlobalWorkerOptions.workerSrc =
-              "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-
-            const loadingTask = pdfjsLib.getDocument(featured.splittedPdf);
-
-            loadingTask.promise.then(async pdf => {
-
-              const container = document.getElementById("previewPages");
-
-              container.innerHTML = "";
-
-              for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
-
-                const page = await pdf.getPage(i);
-
-                const swiperEl = document.querySelector(".previewSwiper");
-
-                const containerWidth = swiperEl.clientWidth;
-
-                const baseViewport = page.getViewport({ scale: 1 });
-
-                const scale = containerWidth / baseViewport.width;
-
-                const viewport = page.getViewport({ scale });
-
-                // 👉 create canvas FIRST
-                const canvas = document.createElement("canvas");
-                const ctx = canvas.getContext("2d");
-
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-
-                await page.render({
-                  canvasContext: ctx,
-                  viewport
-                }).promise;
-
-                canvas.style.width = "100%";
-                canvas.style.height = "auto";
-                canvas.style.borderRadius = "6px";
-
-                const slide = document.createElement("div");
-                slide.className = "swiper-slide d-flex align-items-center justify-content-center";
-
-                slide.appendChild(canvas);
-                container.appendChild(slide);
-              }
-
-              new Swiper(".previewSwiper", {
-                loop: true,
-                slidesPerView: 1,
-                spaceBetween: 10,
-                pagination: { el: ".swiper-pagination" },
-                navigation: {
-                  nextEl: ".swiper-button-next",
-                  prevEl: ".swiper-button-prev"
-                }
-              });
-
-            }).catch(err => {
-              console.error("PDF load error:", err);
-            });
-
-          }
-
-          /* ================= FEATURED ================= */
-          document.getElementById("featuredIssue").innerHTML = `
-      <div class="row">
-        <div class="col-12">
-          <div class="ratio ratio-16x9 shadow rounded">
-            <iframe 
-              src="${featuredIssue.embedUrl}"
-              allowfullscreen
-              loading="lazy"
-              style="border:0">
-            </iframe>
           </div>
         </div>
-      </div>
-    `;
 
-          /* ================= ARCHIVE ================= */
-          const grid = document.getElementById("archiveGrid");
-          archive.forEach(m => {
-            const col = document.createElement("div");
-            col.className = "col-lg-3 col-md-4 col-sm-6 mb-4";
-            col.innerHTML = `
-              <div class="card archive-card h-100 shadow-sm">
-                <img src="${m.cover}" class="card-img-top">
-                <div class="card-body text-center">
-                  <h6>${m.title}</h6>
-                  <a href="/flipbook/${m.id}" class="btn btn-sm btn-outline-primary">Open</a>
-                </div>
+        <!-- PDF PREVIEW -->
+        <div class="col-md-4 d-flex">
+          <div class="bg-white rounded shadow p-3 w-100 d-flex flex-column">
+            <div class="fw-bold border-bottom pb-2 mb-2">
+              INSIDE THIS ISSUE
+            </div>
+            <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+              <div class="swiper previewSwiper w-100 h-100">
+                <div class="swiper-wrapper" id="previewPages"></div>
+                <div class="swiper-pagination"></div>
+                <div class="swiper-button-next"></div>
+                <div class="swiper-button-prev"></div>
               </div>
-            `;
-            grid.appendChild(col);
-          });
+            </div>
+          </div>
+        </div>
 
-          // ================= EVENTS LIST CODE =================
-          allEvents = events.filter(e => e.status === 'active');
-          
-          function renderEventsList() {
-            // Filter for future events (or all active events if you prefer)
-            const now = new Date();
-            const upcomingEvents = allEvents.filter(e => {
-              const eventDate = new Date(e.eventDate);
-              return eventDate >= now || e.status === 'active';
-            });
+        <!-- EVENTS -->
+        <div class="col-md-4 d-flex">
+          <div id="eventsList"
+               class="bg-light rounded shadow p-3 w-100 d-flex flex-column">
+            <div class="fw-bold border-bottom pb-2 mb-2">
+              UPCOMING EVENTS
+            </div>
+            
+            <!-- Container for both events and GIF -->
+            <div class="d-flex flex-column" style="gap: 15px;">
+              <!-- Events container - scrollable -->
+              <div class="events-scroll-container">
+                <div id="eventsContainer"></div>
+              </div>
 
-            // Sort events by date (soonest first)
-            const sortedEvents = [...upcomingEvents].sort((a, b) =>
-              (a.eventDate || '').localeCompare(b.eventDate || '')
-            );
+              <!-- GIF container - fixed height -->
+              <div class="events-gif-container">
+                <img id="gifImage" alt="Banner" class="img-fluid h-100 w-100" style="object-fit: contain;">
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
 
-            const eventsContainer = document.getElementById('eventsContainer');
+      // ================= LOAD GIFS AFTER ELEMENT EXISTS =================
+      loadGifs();
 
-            if (!eventsContainer) return;
+      if (featured.splittedPdf) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
-            if (!sortedEvents.length) {
-              eventsContainer.innerHTML = `
-                <div style="color:#999;font-size:13px;text-align:center;padding:20px;">
-                  No upcoming events scheduled
-                </div>
-              `;
-              return;
+        const loadingTask = pdfjsLib.getDocument(featured.splittedPdf);
+
+        loadingTask.promise.then(async pdf => {
+          const container = document.getElementById("previewPages");
+          container.innerHTML = "";
+
+          for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+            const page = await pdf.getPage(i);
+            const swiperEl = document.querySelector(".previewSwiper");
+            const containerWidth = swiperEl.clientWidth;
+            const baseViewport = page.getViewport({ scale: 1 });
+            const scale = containerWidth / baseViewport.width;
+            const viewport = page.getViewport({ scale });
+
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({
+              canvasContext: ctx,
+              viewport
+            }).promise;
+
+            canvas.style.width = "100%";
+            canvas.style.height = "auto";
+            canvas.style.borderRadius = "6px";
+
+            const slide = document.createElement("div");
+            slide.className = "swiper-slide d-flex align-items-center justify-content-center";
+            slide.appendChild(canvas);
+            container.appendChild(slide);
+          }
+
+          new Swiper(".previewSwiper", {
+            loop: true,
+            slidesPerView: 1,
+            spaceBetween: 10,
+            pagination: { el: ".swiper-pagination" },
+            navigation: {
+              nextEl: ".swiper-button-next",
+              prevEl: ".swiper-button-prev"
             }
+          });
+        }).catch(err => {
+          console.error("PDF load error:", err);
+        });
+      }
 
-            // Create the events list
-            eventsContainer.innerHTML = sortedEvents.map(event => `
-              <div class="event-item" style="
-                margin-bottom:10px;
-                padding:12px;
-                background:white;
-                border-radius:6px;
-                border-left:3px solid #007bff;
-                cursor:pointer;
-                transition:all 0.2s;
-              " data-event-id="${event.id}">
-                <div style="font-weight:bold;margin-bottom:4px;font-size:13px;color:#333;">${event.title}</div>
-                <div style="color:#555;line-height:1.4;font-size:12px;margin-bottom:6px;">${event.description}</div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <div style="font-size:11px;color:#777;">
-                    <i class="bi bi-calendar-event" style="margin-right:4px;"></i>
-                    ${new Date(event.eventDate).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </div>
-                </div>
-              </div>
-            `).join('');
+      /* ================= FEATURED ================= */
+      document.getElementById("featuredIssue").innerHTML = `
+        <div class="row">
+          <div class="col-12">
+            <div class="ratio ratio-16x9 shadow rounded">
+              <iframe 
+                src="${featuredIssue.embedUrl}"
+                allowfullscreen
+                loading="lazy"
+                style="border:0">
+              </iframe>
+            </div>
+          </div>
+        </div>
+      `;
 
-            // Add click handlers to event items
-            const eventItems = eventsContainer.querySelectorAll('.event-item');
-            eventItems.forEach(item => {
-              item.addEventListener('click', function () {
-                // Highlight the clicked event
-                eventItems.forEach(el => {
-                  el.style.boxShadow = 'none';
-                  el.style.transform = 'none';
-                });
-                this.style.boxShadow = '0 2px 8px rgba(0,123,255,0.2)';
-                this.style.transform = 'translateY(-2px)';
-                // You could add more details display logic here if needed
-                console.log('Event clicked:', this.getAttribute('data-event-id'));
-              });
+      /* ================= ARCHIVE ================= */
+      const grid = document.getElementById("archiveGrid");
+      archive.forEach(m => {
+        const col = document.createElement("div");
+        col.className = "col-lg-3 col-md-4 col-sm-6 mb-4";
+        col.innerHTML = `
+          <div class="card archive-card h-100 shadow-sm">
+            <img src="${m.cover}" class="card-img-top">
+            <div class="card-body text-center">
+              <h6>${m.title}</h6>
+              <a href="/flipbook/${m.id}" class="btn btn-sm btn-outline-primary">Open</a>
+            </div>
+          </div>
+        `;
+        grid.appendChild(col);
+      });
 
-              // Add hover effects
-              item.addEventListener('mouseenter', function () {
-                this.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
-                this.style.transform = 'translateY(-1px)';
-              });
-
-              item.addEventListener('mouseleave', function () {
-                this.style.boxShadow = 'none';
-                this.style.transform = 'none';
-              });
-            });
-          }
-
-          // Render the events
-          renderEventsList();
-        })
-        .catch(err => {
-          console.error('Error loading data:', err);
-          const eventsContainer = document.getElementById('eventsContainer');
-          if (eventsContainer) {
-            eventsContainer.innerHTML = `
-              <div style="color:#999;font-size:13px;text-align:center;padding:20px;">
-                Failed to load content
-              </div>
-            `;
-          }
-        })
-        .finally(() => {
-          // Hide loading overlay after all data is fetched
-          const loadingOverlay = document.getElementById('loadingOverlay');
-          if (loadingOverlay) {
-            loadingOverlay.style.opacity = '0';
-            loadingOverlay.style.transition = 'opacity 0.3s ease';
-            setTimeout(() => {
-              loadingOverlay.style.display = 'none';
-            }, 300);
-          }
+      // ================= EVENTS LIST CODE =================
+      let allEvents = events.filter(e => e.status === 'active');
+      
+      function renderEventsList() {
+        const now = new Date();
+        const upcomingEvents = allEvents.filter(e => {
+          const eventDate = new Date(e.eventDate);
+          return eventDate >= now || e.status === 'active';
         });
 
-    </script>
+        const sortedEvents = [...upcomingEvents].sort((a, b) =>
+          (a.eventDate || '').localeCompare(b.eventDate || '')
+        );
+
+        const eventsContainer = document.getElementById('eventsContainer');
+
+        if (!eventsContainer) return;
+
+        if (!sortedEvents.length) {
+          eventsContainer.innerHTML = `
+            <div style="color:#999;font-size:13px;text-align:center;padding:20px;">
+              No upcoming events scheduled
+            </div>
+          `;
+          return;
+        }
+
+        eventsContainer.innerHTML = sortedEvents.map(event => `
+          <div class="event-item" style="
+            margin-bottom:10px;
+            padding:12px;
+            background:white;
+            border-radius:6px;
+            border-left:3px solid #007bff;
+            cursor:pointer;
+            transition:all 0.2s;
+          " data-event-id="${event.id}">
+            <div style="font-weight:bold;margin-bottom:4px;font-size:13px;color:#333;">${event.title}</div>
+            <div style="color:#555;line-height:1.4;font-size:12px;margin-bottom:6px;">${event.description}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-size:11px;color:#777;">
+                <i class="bi bi-calendar-event" style="margin-right:4px;"></i>
+                ${new Date(event.eventDate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        const eventItems = eventsContainer.querySelectorAll('.event-item');
+        eventItems.forEach(item => {
+          item.addEventListener('click', function () {
+            eventItems.forEach(el => {
+              el.style.boxShadow = 'none';
+              el.style.transform = 'none';
+            });
+            this.style.boxShadow = '0 2px 8px rgba(0,123,255,0.2)';
+            this.style.transform = 'translateY(-2px)';
+            console.log('Event clicked:', this.getAttribute('data-event-id'));
+          });
+
+          item.addEventListener('mouseenter', function () {
+            this.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+            this.style.transform = 'translateY(-1px)';
+          });
+
+          item.addEventListener('mouseleave', function () {
+            this.style.boxShadow = 'none';
+            this.style.transform = 'none';
+          });
+        });
+      }
+
+      // Render the events
+      renderEventsList();
+    })
+    .catch(err => {
+      console.error('Error loading data:', err);
+      const eventsContainer = document.getElementById('eventsContainer');
+      if (eventsContainer) {
+        eventsContainer.innerHTML = `
+          <div style="color:#999;font-size:13px;text-align:center;padding:20px;">
+            Failed to load content
+          </div>
+        `;
+      }
+    })
+    .finally(() => {
+      // Hide loading overlay after all data is fetched
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.opacity = '0';
+        loadingOverlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 300);
+      }
+    });
+
+  // ================= GIF LOADING FUNCTION =================
+  async function loadGifs() {
+    try {
+      // Fetch the GIF data from your API endpoint
+      const response = await fetch('/api/gifs');
+      const gifs = await response.json();
+      
+      // The API already returns only active GIFs, so just sort by order
+      const activeGifs = gifs.sort((a, b) => parseInt(a.order) - parseInt(b.order));
+      
+      if (activeGifs.length === 0) {
+        console.log('No active GIFs found');
+        return;
+      }
+      
+      // Get the GIF image element
+      const gifImage = document.getElementById('gifImage');
+      
+      if (!gifImage) {
+        console.error('GIF image element not found');
+        return;
+      }
+      
+      let currentIndex = 0;
+      
+      // Function to change GIF
+      function changeGif() {
+        // Update the image source
+        gifImage.src = activeGifs[currentIndex].image;
+        
+        // Move to next GIF, loop back to start if at the end
+        currentIndex = (currentIndex + 1) % activeGifs.length;
+      }
+      
+      // Show first GIF immediately
+      changeGif();
+      
+      // Change GIF every 10 seconds
+      setInterval(changeGif, 10000);
+    } catch (error) {
+      console.error('Error loading GIFs from API:', error);
+    }
+  }
+</script>
+
+
     <script src="./js/loadProductsSwiper.js"></script>
     <script src="./js/sponsorsSwiper.js"></script>
     <script src="./js/auth.js"></script>

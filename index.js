@@ -18,6 +18,8 @@ const HEYZINE_API_KEY = process.env.HEYZINE_API_KEY;
 const HEYZINE_CLIENT_ID = process.env.HEYZINE_CLIENT_ID;
 const PROTECTION_TOKEN = process.env.PROTECTION_TOKEN;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const SECOND_ADMIN_EMAIL = process.env.SECOND_ADMIN_EMAIL;
+const DEVELOPER_ADMIN_EMAIL = process.env.DEVELOPER_ADMIN_EMAIL;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_LIST_ID = process.env.BREVO_LIST_ID ? Number(process.env.BREVO_LIST_ID) : undefined;
 
@@ -68,13 +70,14 @@ const REEF_FILE = path.join(DATA_DIR, "reefclubs.json");
 const EVENT_FILE = path.join(DATA_DIR, "events.json");
 const NEWS_FILE = path.join(DATA_DIR, "news.json");
 const PRODUCT_FILE = path.join(DATA_DIR, "products.json");
+const GIFS_FILE = path.join(DATA_DIR, "gifs.json");
 const MEMBERS_FILE = path.join(DATA_DIR, "members.json");
 const USERS_FILE = path.join(DATA_DIR,"users.json");
 const STORES_FILE = path.join(DATA_DIR,"stores.json");
 const SESSIONS_DIR = path.join(__dirname, 'data/sessions');
 
 [UPLOAD_DIR, DATA_DIR, COVER_DIR, SPONSORS_DIR, SPLITTED_DIR, SESSIONS_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }) });
-[DB_FILE, ADV_FILE, SPONSOR_FILE, REEF_FILE, EVENT_FILE, NEWS_FILE, PRODUCT_FILE, MEMBERS_FILE, USERS_FILE, STORES_FILE].forEach(d => { if (!fs.existsSync(d)) fs.writeFileSync(d, "[]") });
+[DB_FILE, ADV_FILE, SPONSOR_FILE, REEF_FILE, EVENT_FILE, NEWS_FILE, PRODUCT_FILE, GIFS_FILE, MEMBERS_FILE, USERS_FILE, STORES_FILE].forEach(d => { if (!fs.existsSync(d)) fs.writeFileSync(d, "[]") });
 
 // ================= HELPERS =================
 function readDB() { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }
@@ -93,6 +96,8 @@ function readStoresDB() { return JSON.parse(fs.readFileSync(STORES_FILE)) }
 function writeStoresDB(data) { fs.writeFileSync(STORES_FILE, JSON.stringify(data, null, 2)) }
 function readProductDB() { return JSON.parse(fs.readFileSync(PRODUCT_FILE)) }
 function writeProductDB(data) { fs.writeFileSync(PRODUCT_FILE, JSON.stringify(data, null, 2)) }
+function readGifsDB() { return JSON.parse(fs.readFileSync(GIFS_FILE)) }
+function writeGifsDB(data) { fs.writeFileSync(GIFS_FILE, JSON.stringify(data, null, 2)) }
 function readMembersDB() { return JSON.parse(fs.readFileSync(MEMBERS_FILE)) }
 function readUsersDB(){ return JSON.parse(fs.readFileSync(USERS_FILE)) }
 function writeUsersDB(data) {
@@ -137,6 +142,10 @@ app.get('/admin/magazines.html', (req, res) => {
 });
 app.get('/admin/products.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/products.html'));
+  return res.redirect('/login');
+});
+app.get('/admin/banners.html', (req, res) => {
+  if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/banners.html'));
   return res.redirect('/login');
 });
 app.get('/admin/reefclubs.html', (req, res) => {
@@ -190,7 +199,16 @@ const productStorage = multer.diskStorage({
     cb(null, id + ext);
   }
 });
+const gifsStorage = multer.diskStorage({
+  destination: path.join(__dirname, "uploads/gifs"),
+  filename: (req, file, cb) => {
+    const id = crypto.randomUUID();
+    const ext = path.extname(file.originalname);
+    cb(null, id + ext);
+  }
+});
 const uploadProduct = multer({ storage: productStorage });
+const uploadGifs = multer({ storage: gifsStorage });
 const upload = multer({ storage });
 
 // ================= ADMIN API =================
@@ -220,6 +238,9 @@ app.post('/api/admin/magazines', upload.fields([
 
     const hz = hzResp.data;
     const embedUrl = hz?.links?.embed || hz?.embed || hz?.url || null;
+    console.log('Heyzine response:', hz);
+    console.log('Constructed embed URL:', embedUrl);
+    console.log('hzResp:', hzResp);
     if (!embedUrl) return res.status(500).json({ error: 'Heyzine embed missing' });
 
     let splittedPath = null;
@@ -952,6 +973,61 @@ app.delete("/api/admin/products/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
+// ================= Manage Gifs
+// GET all gifs
+app.get("/api/admin/gifs", (req, res) => {
+  try { 
+    res.json(readGifsDB());
+  } catch (e) { 
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET Public endpoint - filter active elements
+app.get("/api/gifs", (req, res) => {
+  try { 
+    const db = readGifsDB();
+    const active = db.filter(s => s.status === 'active');
+    res.json(active);
+  } catch (e) { 
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// POST create product
+app.post("/api/admin/gifs", uploadGifs.single("image"), (req, res) => {
+  try {
+    const { order, status } = req.body;
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: "Image required" });
+
+    const record = {
+      id: crypto.randomUUID(),
+      status,
+      order,
+      image: "/uploads/gifs/" + file.filename
+    };
+
+    const db = readGifsDB();
+    db.push(record);
+    writeGifsDB(db);
+    res.json({ success: true, record });
+  } catch (e) { res.status(500).json({ error: "Create failed" }) }
+});
+
+// DELETE product
+app.delete("/api/admin/gifs/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let db = readGifsDB();
+    const idx = db.findIndex(x => x.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+    db.splice(idx, 1);
+    writeGifsDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: "Delete failed" }) }
+});
+
 // ================= Manage Members
 // GET all members (for now, only read members data)
 app.get("/api/admin/members", (req, res) => {
@@ -1054,8 +1130,8 @@ app.post("/api/login", async (req,res)=>{
     // Create session
     req.session.userId = user.id;
     req.session.userEmail = user.email;
-    // mark admin session when email matches ADMIN_EMAIL
-    req.session.isAdmin = (user.email === ADMIN_EMAIL);
+    // mark admin session when email matches admin emails defined in .env
+    req.session.isAdmin = (user.email === ADMIN_EMAIL || user.email === DEVELOPER_ADMIN_EMAIL || user.email === process.env.SECOND_ADMIN_EMAIL);
     res.json({success:true, message:"Login successful", admin: !!req.session.isAdmin});
   }catch(e){
     console.error(e);
