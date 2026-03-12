@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
   <head>
@@ -12,7 +13,7 @@
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin – Members</title>
+    <title>Admin – Users</title>
     <link rel="icon" type="image/png" href="/img/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/style/admin.css" />
@@ -45,7 +46,7 @@
 
     <!-- ================= DASHBOARD ================= -->
     <div class="container-fluid px-4 py-4">
-      <h2 class="mb-4">👥 Manage Members</h2>
+      <h2 class="mb-4">👥 Manage Users</h2>
       <!-- Search and Filter -->
       <div class="row mb-3">
         <div class="col-md-6">
@@ -75,8 +76,6 @@
                   <th>Email</th>
                   <th>Country</th>
                   <th>Registration</th>
-                  <th>Activation</th>
-                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -94,34 +93,6 @@
         <div class="d-flex justify-content-center align-items-center mt-3">
             <div class="page-info" id="pageInfo"></div>
         </div>
-      </div>
-    </div>
-
-    <!-- ================= EDIT MODAL ================= -->
-    <div class="modal fade" id="editModal">
-      <div class="modal-dialog">
-        <form id="editForm" class="modal-content">
-          <div class="modal-header">
-            <h5>Edit Member</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <input type="hidden" name="id">
-            <input type="email" name="email" class="form-control mb-3" placeholder="Email" required>
-            <input type="text" name="country" class="form-control mb-3" placeholder="Country" required>
-            <input type="date" name="registration" class="form-control mb-3" placeholder="Registration Date" required>
-            <input type="date" name="activation" class="form-control mb-3" placeholder="Activation Date">
-            <select name="status" class="form-select mb-3">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-          </div>
-        </form>
       </div>
     </div>
 
@@ -152,12 +123,12 @@
       // ================= LOAD ALL MEMBERS =================
       async function loadMembers() {
         try {
-          const res = await fetch("/api/admin/members");
+          const res = await fetch("/api/admin/users");
           allMembers = await res.json();
           // Sort by registration date (newest first) or ID
           allMembers.sort((a, b) => {
-            if (a.registration && b.registration) {
-              return new Date(b.registration) - new Date(a.registration);
+            if (a.createdAt && b.createdAt) {
+              return new Date(b.createdAt) - new Date(a.createdAt);
             }
             return b.id.localeCompare(a.id);
           });
@@ -165,8 +136,8 @@
           renderTable();
           updatePagination();
         } catch (error) {
-          console.error("Error loading members:", error);
-          table.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Failed to load members</td></tr>`;
+          console.error("Error loading users:", error);
+          table.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Failed to load users</td></tr>`;
         }
       }
 
@@ -221,12 +192,9 @@
           tr.innerHTML = `
             <td>${m.email}</td>
             <td>${m.country}</td>
-            <td>${formatDate(m.registration)}</td>
-            <td>${formatDate(m.activation)}</td>
-            <td><span class="${statusClass}">${m.status}</span></td>
+            <td>${formatDate(m.createdAt)}</td>
             <td>
               <div class="btn-group btn-group-sm" role="group">
-                <button class="btn btn-outline-secondary" onclick="openEdit('${m.id}')">Edit</button>
                 <button class="btn btn-outline-danger" onclick="deleteMember('${m.id}')">Delete</button>
               </div>
             </td>
@@ -310,67 +278,12 @@
         renderTable();
         updatePagination();
       }
-
-      // ================= EDIT MEMBER =================
-      async function openEdit(id) {
-        const m = allMembers.find(x => x.id === id);
-        if (!m) {
-          alert("Member not found");
-          return;
-        }
-        const f = document.forms.editForm;
-        f.id.value = m.id;
-        f.email.value = m.email;
-        f.country.value = m.country;
-        // Format dates for date input (YYYY-MM-DD)
-        const formatForDateInput = (dateStr) => {
-          if (!dateStr) return "";
-          try {
-            const date = new Date(dateStr);
-            return date.toISOString().split('T')[0];
-          } catch {
-            return dateStr;
-          }
-        };
-        f.registration.value = formatForDateInput(m.registration);
-        f.activation.value = formatForDateInput(m.activation);
-        f.status.value = m.status;
-        new bootstrap.Modal(document.getElementById("editModal")).show();
-      }
-
-      document.getElementById("editForm").addEventListener("submit", async e => {
-        e.preventDefault();
-        const id = e.target.id.value;
-        const payload = {
-          email: e.target.email.value,
-          country: e.target.country.value,
-          registration: e.target.registration.value,
-          activation: e.target.activation.value,
-          status: e.target.status.value
-        };
-        try {
-          const res = await fetch("/api/admin/members/" + id, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          const json = await res.json();
-          if (json.success) {
-            bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
-            loadMembers(); // Reload all data
-          } else {
-            alert(json.error || "Update failed");
-          }
-        } catch (error) {
-          alert("Network error: " + error.message);
-        }
-      });
-
+      
       // ================= DELETE MEMBER =================
       async function deleteMember(id) {
         if (!confirm("Are you sure you want to delete this member?")) return;
         try {
-          const res = await fetch("/api/admin/members/" + id, { method: "DELETE" });
+          const res = await fetch("/api/admin/users/" + id, { method: "DELETE" });
           const json = await res.json();
           if (json.success) {
             loadMembers(); // Reload all data

@@ -2,7 +2,18 @@
 <html>
 
     <head>
-        <title>RHM - Register</title>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-87FCYMD0DT"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+        
+          gtag('config', 'G-87FCYMD0DT');
+        </script>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Sign Up</title>
         <link rel="icon" type="image/png" href="/img/favicon.ico">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="/style/home.css" />
@@ -11,39 +22,51 @@
     <body>
         <nav class="navbar navbar-expand-lg navbar-dark bg-black">
             <div class="container">
-                <a class="navbar-brand" href="/"><img src="./img/logo.jpg" alt="Magazine Logo" class="img-fluid"></a>
+                <a class="navbar-brand" href="/"><img src="/img/logo.jpg" alt="Magazine Logo" class="img-fluid" style="height: 110px; width: auto;"></a>
                 <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div id="nav" class="collapse navbar-collapse">
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/archive">Archive</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/clubs">REEF Clubs</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/archive">Archives</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/clubs">Reef Clubs</a></li>
                         <li class="nav-item"><a class="nav-link" href="/advertisers">Advertisers</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/stores">Stores</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/stores">Store Locator</a></li>
                         <li class="nav-item"><a class="nav-link" target="_blank"
                                 href="https://docs.google.com/forms/d/e/1FAIpQLSeB-HeqzgCeYOiM4rS6SiErttvq2fbg3pJOzWBSj2DH6lAtJA/viewform">Contact
                                 Us</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/subscribe">Subscribe</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/signup">Sign Up</a></li>
                         <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
                     </ul>
                 </div>
             </div>
         </nav>
+        
+        <div class="container py-4">
+            <p class="w-100">Are you a Reef Hobbyist Magazine fan? Sign up for FREE access to our digital archives and quarterly e-newsletter. Our digital archives provide an entire library of RHM past editions and our e-newsletter brings highlights of upcoming features directly to your inbox. No paywalls; no subscriptions. Zero barriers to entry. Enjoy easy access every day.</p>
+        </div>
+        
+        
 
         <!-- ================= REGISTRATION FORM ================= -->
-        <section class="py-5">
+        <section class="py-1">
             <div class="container">
                 <div class="row justify-content-center">
                     <div class="col-md-6">
                         <div class="card shadow-sm">
                             <div class="card-body p-5">
-                                <h2 class="card-title text-center mb-4">Subscribe</h2>
+                                <h2 class="card-title text-center mb-4">Sign Up</h2>
                                 <form id="registerForm">
                                     <div class="mb-3">
                                         <label for="name" class="form-label">Name</label>
                                         <input type="text" class="form-control" id="name" name="name" placeholder="Your name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="country" class="form-label">Country</label>
+                                        <select class="form-select" id="country" name="country" required>
+                                            <option value="">Select your country</option>
+                                        </select>
                                     </div>
                                     <div class="mb-3">
                                         <label for="email" class="form-label">Email</label>
@@ -63,6 +86,16 @@
                 </div>
             </div>
         </section>
+        <div class="container py-4">
+            <p class="w-100">Calling all store owners! Do you want RHM shipped directly to your store? Sign up here for a recurring subscription. You cover the shipping cost and the rest is on us!</p>
+        </div>
+        <div class="container py-4">
+            <div class="row  mt-2">
+                <div class="d-flex justify-content-center">
+                    <div id="paypal-button-container-P-1SD542775R563804FNGIPJVY"></div>
+                </div>
+            </div>
+        </div>
         <footer>
             <div class="container text-center">
                 <p>All Rights Reserved. Copyright ©
@@ -76,15 +109,81 @@
                 </p>
             </div>
         </footer>
+        <script src="https://www.paypal.com/sdk/js?client-id=AbBhzqlSqAilvdVD3PhTIxCkyHF6hpt3c_9bHogBaDnOg4gDTab1tUusErCR6DUtQfbqvwrQbWNq-t0i&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
+        <script>
+          paypal.Buttons({
+              style: {
+                  shape: 'rect',
+                  color: 'gold',
+                  layout: 'vertical',
+                  label: 'subscribe'
+              },
+              createSubscription: function(data, actions) {
+                return actions.subscription.create({
+                  /* Creates the subscription */
+                  plan_id: 'P-1SD542775R563804FNGIPJVY',
+                  quantity: 1 // The quantity of the product for a subscription
+                });
+              },
+              onApprove: function(data, actions) {
+                alert(data.subscriptionID); // You can add optional success message for the subscriber here
+              }
+          }).render('#paypal-button-container-P-1SD542775R563804FNGIPJVY'); // Renders the PayPal button
+        </script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
         <script src="./js/auth.js"></script>
         <script>
+            // Country list
+            const countries = [
+                "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", 
+                "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", 
+                "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", 
+                "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", 
+                "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", 
+                "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", 
+                "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", 
+                "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", 
+                "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", 
+                "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", 
+                "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", 
+                "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", 
+                "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", 
+                "Korea, North", "Korea, South", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", 
+                "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", 
+                "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", 
+                "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", 
+                "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", 
+                "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", 
+                "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", 
+                "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", 
+                "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", 
+                "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", 
+                "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", 
+                "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", 
+                "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", 
+                "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", 
+                "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", 
+                "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", 
+                "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", 
+                "Zambia", "Zimbabwe"
+            ];
+            
+            // Populate country select
+            const countrySelect = document.getElementById('country');
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                countrySelect.appendChild(option);
+            });
+            
             document.getElementById("registerForm").addEventListener("submit", async (e) => {
                 e.preventDefault();
                 
                 const name = document.getElementById("name").value.trim();
                 const email = document.getElementById("email").value.trim();
                 const password = document.getElementById("password").value;
+                const country = document.getElementById("country").value;
                 const messageEl = document.getElementById("registerMessage");
                 
                 // Validate password length
@@ -99,7 +198,7 @@
                     const res = await fetch("/api/register", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name, email, password })
+                        body: JSON.stringify({ name, email, password, country })
                     });
                     
                     const data = await res.json();

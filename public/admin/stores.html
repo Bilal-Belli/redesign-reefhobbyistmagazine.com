@@ -2,6 +2,17 @@
 <html>
 
     <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-87FCYMD0DT"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+        
+          gtag('config', 'G-87FCYMD0DT');
+        </script>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Admin – Stores</title>
         <link rel="icon" type="image/png" href="/img/favicon.ico">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -29,26 +40,31 @@
         <!-- ================= DASHBOARD ================= -->
         <div class="container-fluid px-4 py-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>📰 Manage Stores</h2>
+                <h2>🏪 Manage Stores</h2>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
                     Add Store
                 </button>
             </div>
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Address</th>
-                                <th>Maps URL</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="storeTable"></tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle mb-2">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Address</th>
+                                    <th>Maps URL</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storeTable"></tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination -->
+                    <nav aria-label="Stores pagination">
+                        <ul class="pagination justify-content-center mb-0" id="pagination"></ul>
+                    </nav>
                 </div>
             </div>
         </div>
@@ -115,28 +131,88 @@
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
         <script>
             const table = document.getElementById("storeTable");
+            const pagination = document.getElementById("pagination");
+            let allStores = [];
+            let currentPage = 1;
+            const itemsPerPage = 10;
+
             /* ================= LOAD ================= */
-            async function loadNews() {
+            async function loadStores() {  // FIXED: was loadNews()
                 const res = await fetch("/api/admin/stores");
-                const list = await res.json();
+                allStores = await res.json();
+                renderTable();
+                renderPagination();
+            }
+
+            function renderTable() {
+                const start = (currentPage - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+                const pageItems = allStores.slice(start, end);
+                
                 table.innerHTML = "";
-                list.forEach(n => {
+                pageItems.forEach(n => {
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-            <td>${n.id}</td>
-            <td>${n.store_name}</td>
-            <td>${n.status}</td>
-            <td>${n.address || ""}</td>
-            <td>${n.mapsURL || ""}</td>
-            <td>
-              <button class="btn btn-sm btn-outline-secondary" onclick="openEdit('${n.id}')">Edit</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="deleteNews('${n.id}')">Delete</button>
-            </td>
-          `;
+                        <td>${n.store_name}</td>
+                        <td><span class="badge ${n.status === 'active' ? 'bg-success' : 'bg-secondary'}">${n.status}</span></td>
+                        <td>${n.address || ""}</td>
+                        <td><a class="active" href="${n.mapsURL}">Link</a></td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-secondary" onclick="openEdit('${n.id}')">Edit</button>
+                                <button class="btn btn-outline-danger" onclick="deleteStore('${n.id}')">Delete</button>  <!-- FIXED: was deleteNews -->
+                            </div>
+                        </td>
+                    `;
                     table.appendChild(tr);
                 });
             }
-            loadNews();
+
+            function renderPagination() {
+                const totalPages = Math.ceil(allStores.length / itemsPerPage);
+                pagination.innerHTML = "";
+                
+                // Previous button
+                const prevLi = document.createElement("li");
+                prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+                prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>`;
+                pagination.appendChild(prevLi);
+
+                // Page numbers (show max 5 pages)
+                const maxVisible = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                
+                if (endPage - startPage + 1 < maxVisible) {
+                    startPage = Math.max(1, endPage - maxVisible + 1);
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    const li = document.createElement("li");
+                    li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                    li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>`;
+                    pagination.appendChild(li);
+                }
+
+                // Next button
+                const nextLi = document.createElement("li");
+                nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>`;
+                pagination.appendChild(nextLi);
+            }
+
+            function changePage(page) {
+                const totalPages = Math.ceil(allStores.length / itemsPerPage);
+                if (page < 1 || page > totalPages || page === currentPage) return;
+                
+                currentPage = page;
+                renderTable();
+                renderPagination();
+            }
+
+            window.changePage = changePage; // Make global for onclick handlers
+
+            loadStores();  // FIXED: was loadNews()
 
             /* ================= CREATE ================= */
             document.getElementById("createForm").addEventListener("submit", async e => {
@@ -157,7 +233,7 @@
                 if (json.success) {
                     bootstrap.Modal.getInstance(document.getElementById("createModal")).hide();
                     e.target.reset();
-                    loadNews();
+                    loadStores();  // FIXED: was loadNews()
                 } else alert(json.error || "Create failed");
             });
 
@@ -192,17 +268,19 @@
                 const json = await res.json();
                 if (json.success) {
                     bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
-                    loadNews();
+                    loadStores();  // FIXED: was loadNews()
                 } else alert(json.error || "Update failed");
             });
 
             /* ================= DELETE ================= */
-            async function deleteNews(id) {
+            async function deleteStore(id) {  // FIXED: was deleteNews()
                 if (!confirm("Delete this store item?")) return;
                 const res = await fetch("/api/admin/stores/" + id, { method: "DELETE" });
                 const json = await res.json();
-                if (json.success) loadNews();
+                if (json.success) loadStores();  // FIXED: was loadNews()
             }
+
+            window.deleteStore = deleteStore;  // Make global for onclick handlers
         </script>
     </body>
 

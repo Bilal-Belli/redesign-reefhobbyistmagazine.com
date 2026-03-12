@@ -2,6 +2,17 @@
 <html>
 
   <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-87FCYMD0DT"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+    
+      gtag('config', 'G-87FCYMD0DT');
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admin – Magazines</title>
     <link rel="icon" type="image/png" href="/img/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -9,6 +20,27 @@
   </head>
 
   <body class="bg-light">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    ">
+      <div style="text-align: center;">
+        <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p style="color: white; margin-top: 1rem;" id="loadingMessage">Processing...</p>
+      </div>
+    </div>
     <!-- ================= NAVBAR ================= -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-black">
       <div class="container">
@@ -18,7 +50,8 @@
         </button>
         <div id="nav" class="collapse navbar-collapse">
           <ul class="navbar-nav ms-auto">
-            <li class="nav-item btn btn-outline-warning btn-sm mx-4"><a class="nav-link active" href="/admin">Admin Home</a></li>
+            <li class="nav-item btn btn-outline-warning btn-sm mx-4"><a class="nav-link active" href="/admin">Admin
+                Home</a></li>
           </ul>
         </div>
       </div>
@@ -84,7 +117,6 @@
             <table class="table table-bordered table-hover align-middle">
               <thead class="table-dark">
                 <tr>
-                  <th>ID</th>
                   <th>Cover</th>
                   <th>Title</th>
                   <th>Year</th>
@@ -99,8 +131,10 @@
           </div>
 
           <!-- Pagination -->
-          <div class="d-flex justify-content-between align-items-center mt-3">
+          <div class="d-flex justify-content-center align-items-center mt-3">
             <div class="page-info" id="pageInfo"></div>
+          </div>
+          <div class="d-flex justify-content-center align-items-center mt-3">
             <nav>
               <ul class="pagination mb-0" id="pagination"></ul>
             </nav>
@@ -200,6 +234,51 @@
       const pagination = document.getElementById("pagination");
       const pageInfo = document.getElementById("pageInfo");
 
+      function hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay) {
+          console.error('Loading overlay not found!');
+          return;
+        }
+        overlay.style.display = 'none';
+      }
+
+      function hideLoadingWithTransition() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay) {
+          console.error('Loading overlay not found!');
+          return;
+        }
+
+        // Add fade out transition
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+
+        // Remove from display after transition
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          // Reset opacity for next time
+          overlay.style.opacity = '1';
+        }, 300);
+      }
+
+      // Update showLoading to ensure proper initial state
+      function showLoading(message = 'Processing...') {
+        const overlay = document.getElementById('loadingOverlay');
+        const messageEl = document.getElementById('loadingMessage');
+
+        if (!overlay) {
+          console.error('Loading overlay not found!');
+          return;
+        }
+
+        // Reset styles
+        overlay.style.transition = 'opacity 0.3s ease';
+        overlay.style.opacity = '1';
+        overlay.style.display = 'flex';
+        messageEl.textContent = message;
+      }
+
       // ================= LOAD ALL MAGAZINES =================
       async function loadMagazines() {
         try {
@@ -288,7 +367,6 @@
           // Featured star
           const featuredIcon = m.featured ? '<span class="featured-star">⭐</span>' : '';
           tr.innerHTML = `
-            <td><strong>${m.id}</strong></td>
             <td>
               <img src="${m.cover}" alt="${m.title}" class="img-thumbnail" 
                   style="max-height: 80px; object-fit: cover;"
@@ -407,34 +485,43 @@
       // ================= CREATE MAGAZINE =================
       document.getElementById("createForm").addEventListener("submit", async e => {
         e.preventDefault();
-        
+
         // If marking as featured, confirm since it will unfeature others
         if (document.getElementById("createFeatured").checked) {
           const currentFeatured = allMagazines.find(m => m.featured);
           if (currentFeatured) {
-            if (!confirm(`This will unfeature \"${currentFeatured.title}\". Continue?`)) {
+            if (!confirm(`This will unfeature "${currentFeatured.title}". Continue?`)) {
               return;
             }
           }
         }
-        
+
         const fd = new FormData(e.target);
+
+        // Show loading overlay
+        showLoading('Uploading magazine and processing with Heyzine...');
+
         try {
           const res = await fetch("/api/admin/magazines", {
             method: "POST",
             body: fd
           });
+
           const json = await res.json();
+
           if (json.success) {
             const modalEl = document.getElementById("createModal");
             bootstrap.Modal.getInstance(modalEl).hide();
             e.target.reset();
-            loadMagazines(); // Reload all data
+            await loadMagazines(); // Reload all data
           } else {
             alert(json.error || "Create failed");
           }
         } catch (error) {
           alert("Network error: " + error.message);
+        } finally {
+          // ALWAYS hide loading overlay, whether success or error
+          hideLoadingWithTransition();
         }
       });
 
@@ -457,8 +544,7 @@
       document.getElementById("editForm").addEventListener("submit", async e => {
         e.preventDefault();
         const id = e.target.id.value;
-        
-        // If marking as featured, confirm since it will unfeature others
+
         if (e.target.featured.checked) {
           const currentFeatured = allMagazines.find(m => m.featured);
           if (currentFeatured && currentFeatured.id !== id) {
@@ -467,46 +553,60 @@
             }
           }
         }
-        
+
         const payload = {
           title: e.target.title.value,
           year: parseInt(e.target.year.value),
           status: e.target.status.value,
           featured: e.target.featured.checked
         };
+
+        showLoading('Updating magazine...');
+
         try {
           const res = await fetch("/api/admin/magazines/" + id, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
+
           const json = await res.json();
+
           if (json.success) {
             bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
-            loadMagazines(); // Reload all data
+            await loadMagazines();
           } else {
             alert(json.error || "Update failed");
           }
         } catch (error) {
           alert("Network error: " + error.message);
+        } finally {
+          hideLoadingWithTransition();
         }
       });
 
       // ================= DELETE MAGAZINE =================
       async function deleteMag(id) {
         if (!confirm("Are you sure you want to delete this magazine?")) return;
+
+        showLoading('Deleting magazine...');
+
         try {
           const res = await fetch("/api/admin/magazines/" + id, {
             method: "DELETE"
           });
+
           const json = await res.json();
+
           if (json.success) {
-            loadMagazines(); // Reload all data
+            await loadMagazines();
           } else {
             alert(json.error || "Delete failed");
           }
         } catch (error) {
           alert("Network error: " + error.message);
+        } finally {
+          hideLoadingWithTransition();
         }
       }
 
@@ -532,4 +632,5 @@
       });
     </script>
   </body>
+
 </html>
