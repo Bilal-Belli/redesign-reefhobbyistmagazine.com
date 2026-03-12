@@ -13,7 +13,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const BASE_URL = process.env.BASE_URL;
 const HEYZINE_API_KEY = process.env.HEYZINE_API_KEY;
 const HEYZINE_CLIENT_ID = process.env.HEYZINE_CLIENT_ID;
 const PROTECTION_TOKEN = process.env.PROTECTION_TOKEN;
@@ -46,7 +46,7 @@ app.use(session({
     }),
     cookie: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',  // works correctly with trust proxy
+        secure: process.env.NODE_ENV === 'production',  // works correctly with trust proxy 
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',  // to fix some prod errors
         maxAge: 24 * 60 * 60 * 1000
     }
@@ -100,6 +100,15 @@ function readGifsDB() { return JSON.parse(fs.readFileSync(GIFS_FILE)) }
 function writeGifsDB(data) { fs.writeFileSync(GIFS_FILE, JSON.stringify(data, null, 2)) }
 function readMembersDB() { return JSON.parse(fs.readFileSync(MEMBERS_FILE)) }
 function readUsersDB(){ return JSON.parse(fs.readFileSync(USERS_FILE)) }
+function writeMembersDB(data) {
+  try {
+    fs.writeFileSync(MEMBERS_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (err) {
+    console.error('Failed to write users DB:', err);
+    throw err; // Re-throw to be caught in route
+  }
+}
 function writeUsersDB(data) {
   try {
     fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
@@ -144,10 +153,6 @@ app.get('/admin/products.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/products.html'));
   return res.redirect('/login');
 });
-app.get('/admin/banners.html', (req, res) => {
-  if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/banners.html'));
-  return res.redirect('/login');
-});
 app.get('/admin/reefclubs.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/reefclubs.html'));
   return res.redirect('/login');
@@ -166,6 +171,10 @@ app.get('/admin/members.html', (req, res) => {
 });
 app.get('/admin/stores.html', (req, res) => {
   if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/stores.html'));
+  return res.redirect('/login');
+});
+app.get('/admin/banners.html', (req, res) => {
+  if(req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public/admin/banners.html'));
   return res.redirect('/login');
 });
 
@@ -237,13 +246,9 @@ app.post('/api/admin/magazines', upload.fields([
     });
 
     const hz = hzResp.data;
-    const embedUrl = hz?.links?.embed || hz?.embed || hz?.url || null;
-    console.log('Heyzine response:', hz);
-    console.log('Constructed embed URL:', embedUrl);
-    console.log('hzResp:', hzResp);
-    if (!embedUrl) return res.status(500).json({ error: 'Heyzine embed missing' });
-
     let splittedPath = null;
+    const clientId = process.env.HEYZINE_CLIENT_ID; // Load from .env
+    if (!clientId) return res.status(500).json({ error: 'Config error' });
 
     if (splittedPdfFile) {
       splittedPath = `/uploads/splitted/${splittedPdfFile.filename}`;
@@ -259,7 +264,8 @@ app.post('/api/admin/magazines', upload.fields([
       pdf: `/uploads/${pdfFile.filename}`,
       cover: `/uploads/covers/${coverFile.filename}`,
       heyzineId: hz.id,
-      embedUrl,
+      embedUrl: `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${hz.id}&k=${clientId}&d=0&logo=${BASE_URL}/img/logo.jpg`,
+      downloadEmbedUrl: `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${hz.id}&k=${clientId}&d=1&logo=${BASE_URL}/img/logo.jpg`,
       createdAt: new Date().toISOString(),
       splittedPdf: splittedPath
     };
@@ -296,37 +302,21 @@ app.get('/api/magazines', (req, res) => {
   res.json(active);
 });
 
-// return the json from flipbook database
+// Serve the flipbook page
+app.get('/flipbook/:id', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'flipbook.html'));
+});
+
+// API endpoint for getting the flipbook URL
 app.get('/api/flipbook/:id', (req, res) => {
-  const db = readDB();
-  const fb = db.find(r => r.id === req.params.id);
-  if (!fb) return res.status(404).json({ error: 'Not found' });
-  res.json(fb);
-});
-
-// return embed html code to fetch in iframe without download option (for all website visitors)
-app.get('/api/featuredIssue', (req, res) => {
-  const db = readDB();
-  const featured = db.find(m => m.featured);
-  if (!featured) return res.status(404).json({ error: 'Not found' });
-  const clientId = process.env.HEYZINE_CLIENT_ID; // Load from .env
-  if (!clientId) return res.status(500).json({ error: 'Config error' });
-
-  const embedUrl = `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${featured.heyzineId}&k=${clientId}&d=0`;
-  res.json({ embedUrl });
-});
-
-// without download option (for website visitors)
-app.get('/api/flipbook/:id/visitor', (req, res) => {
-  const db = readDB();
-  const fb = db.find(r => r.id === req.params.id);
-  if (!fb) return res.status(404).json({ error: 'Not found' });
-  
-  const clientId = process.env.HEYZINE_CLIENT_ID; // Load from .env
-  if (!clientId) return res.status(500).json({ error: 'Config error' });
-  
-  const embedUrl = `https://heyzine.com/api1?pdf=https://cdnc.heyzine.com/flip-book/pdf/${fb.heyzineId}&k=${clientId}&d=0`;
-  res.json({ embedUrl });
+    const db = readDB();
+    const fb = db.find(r => r.id === req.params.id);
+    if (!fb) return res.status(404).json({ error: 'Not found' });
+    if (!req.session || !req.session.userId) {
+        res.json({ url: fb.embedUrl });
+    } else {
+        res.json({ url: fb.downloadEmbedUrl });
+    }
 });
 
 // PATCH: Update magazine metadata (title, year, status, featured)
@@ -690,7 +680,7 @@ app.get("/api/events", (req, res) => {
 // POST create (unique sort)
 app.post("/api/admin/events", (req, res) => {
   try {
-    const { title, status, sort, featured, description, eventDate } = req.body;
+    const { title, status, sort, description, eventDate } = req.body;
     const db = readEventDB();
     if (db.find(ev => ev.sort === Number(sort))) {
       return res.status(400).json({ error: "Sort value must be unique" });
@@ -701,7 +691,6 @@ app.post("/api/admin/events", (req, res) => {
       description: description || "",
       eventDate: eventDate || "",
       status,
-      featured: !!featured,
       sort: Number(sort),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -719,7 +708,7 @@ app.post("/api/admin/events", (req, res) => {
 app.patch("/api/admin/events/:id", (req, res) => {
   try {
     const { id } = req.params;
-    const { title, status, sort, featured, description, eventDate } = req.body;
+    const { title, status, sort, description, eventDate } = req.body;
     const db = readEventDB();
     const ev = db.find(x => x.id === id);
     if (!ev) return res.status(404).json({ error: "Not found" });
@@ -731,7 +720,6 @@ app.patch("/api/admin/events/:id", (req, res) => {
     ev.eventDate = eventDate ?? ev.eventDate;
     ev.status = status ?? ev.status;
     ev.sort = sort !== undefined ? Number(sort) : ev.sort;
-    ev.featured = featured !== undefined ? !!featured : ev.featured;
     ev.updatedAt = new Date().toISOString();
     writeEventDB(db);
     res.json({ success: true });
@@ -776,13 +764,12 @@ app.get("/api/news", (req, res) => {
 // POST create
 app.post("/api/admin/news", (req, res) => {
   try {
-    const { title, status, featured, description } = req.body;
+    const { title, status, description } = req.body;
 
     const record = {
       id: crypto.randomUUID(),
       title,
       status,
-      featured: !!featured,
       description: description || "",
       createdAt: new Date().toISOString()
     };
@@ -798,14 +785,13 @@ app.post("/api/admin/news", (req, res) => {
 app.patch("/api/admin/news/:id", (req, res) => {
   try {
     const { id } = req.params;
-    const { title, status, featured, description } = req.body;
+    const { title, status, description } = req.body;
     const db = readNewsDB();
     const n = db.find(x => x.id === id);
     if (!n) return res.status(404).json({ error: "Not found" });
 
     n.title = title ?? n.title;
     n.status = status ?? n.status;
-    n.featured = !!featured;
     n.description = description ?? n.description;
     n.updatedAt = new Date().toISOString();
 
@@ -1015,6 +1001,34 @@ app.post("/api/admin/gifs", uploadGifs.single("image"), (req, res) => {
   } catch (e) { res.status(500).json({ error: "Create failed" }) }
 });
 
+// PATCH update product
+app.patch("/api/admin/gifs/:id", uploadGifs.single("image"), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { order, status } = req.body;
+    const db = readGifsDB();
+    const p = db.find(x => x.id === id);
+    if (!p) return res.status(404).json({ error: "Not found" });
+
+    // Check order uniqueness (excluding current record)
+    if (order !== undefined && order != p.order) {
+      const duplicate = db.find(x => x.id !== id && x.order == order);
+      if (duplicate) return res.status(400).json({ error: "Order must be unique" });
+    }
+
+    if (order !== undefined) p.order = order;
+    if (status !== undefined) p.status = status;
+    if (req.file) p.image = "/uploads/gifs/" + req.file.filename;
+    
+    // FIX: SAVE CHANGES TO DB (when attemp to change gif informations)
+    writeGifsDB(db);  
+    res.json({ success: true });
+  } catch (e) { 
+    res.status(500).json({ error: "Update failed" }) 
+  }
+});
+
+
 // DELETE product
 app.delete("/api/admin/gifs/:id", (req, res) => {
   try {
@@ -1028,18 +1042,86 @@ app.delete("/api/admin/gifs/:id", (req, res) => {
   } catch (e) { res.status(500).json({ error: "Delete failed" }) }
 });
 
-// ================= Manage Members
-// GET all members (for now, only read members data)
+// ================= OLD Members
+// GET all members
 app.get("/api/admin/members", (req, res) => {
   try { res.json(readMembersDB()) }
   catch (e) { res.status(500).json({ error: "Failed" }) }
+});
+
+// Delete
+app.delete("/api/admin/members/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let db = readMembersDB();
+    const idx = db.findIndex(x => x.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+    db.splice(idx, 1);
+    writeMembersDB(db);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: "Delete failed" }) }
+});
+
+// ================= Manage Users
+// GET all users
+app.get("/api/admin/users", (req, res) => {
+  try { res.json(readUsersDB()) }
+  catch (e) { res.status(500).json({ error: "Failed" }) }
+});
+
+app.delete("/api/admin/users/:id", async (req, res) => {  // Add async here
+  try {
+    const { id } = req.params;
+    let db = readUsersDB();
+    const idx = db.findIndex(x => x.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+    
+    const user = db[idx]; // Get the actual user object
+    
+    if (BREVO_API_KEY && user.email) {
+      try {
+        // Option 1: Delete contact completely from Brevo (if you want to remove entirely)
+        await axios.delete(`https://api.brevo.com/v3/contacts/${encodeURIComponent(user.email)}`, {
+          headers: {
+            'api-key': BREVO_API_KEY,
+            'accept': 'application/json'
+          },
+          timeout: 5000
+        });
+        console.log(`Contact ${user.email} deleted from Brevo`);
+        
+      } catch (err) {
+        // Handle specific Brevo errors
+        if (err.response?.status === 404) {
+          // Contact doesn't exist in Brevo - that's fine
+          console.log(`Contact ${user.email} not found in Brevo, skipping...`);
+        } else {
+          const errorData = err.response?.data;
+          console.error('Brevo API Error:', {
+            message: err.message,
+            status: err.response?.status,
+            data: errorData
+          });
+        }
+      }
+    }
+    
+    // Remove user from local database
+    db.splice(idx, 1);
+    writeUsersDB(db);
+    res.json({ success: true });
+    
+  } catch (e) { 
+    console.error('Server error:', e);
+    res.status(500).json({ error: "Delete failed" }) 
+  }
 });
 
 // ================= USER REGISTRATION & AUTH =================
 // POST register - public endpoint
 app.post("/api/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, country, password} = req.body;
     // Validate inputs
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
     if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
@@ -1055,6 +1137,7 @@ app.post("/api/register", async (req, res) => {
       id: crypto.randomUUID(),
       email,
       password: hashedPassword,
+      country,
       createdAt: new Date().toISOString()
     };
     
@@ -1196,20 +1279,12 @@ app.get('/admin', (req, res) => {
   return res.redirect('/login');
 });
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public/login.html')));
-app.get('/subscribe', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
 app.get('/recover-account', (req, res) => res.sendFile(path.join(__dirname, 'public/recover.html')));
 app.get('/advertisers', (req, res) => res.sendFile(path.join(__dirname, 'public/advertisers.html')));
 app.get('/stores', (req, res) => res.sendFile(path.join(__dirname, 'public/stores.html')));
 app.get('/clubs', (req, res) => res.sendFile(path.join(__dirname, 'public/clubs.html')));
 app.get('/archive', isLoggedIn, (req, res) => res.sendFile(path.join(__dirname, 'public/archive.html')));
-app.get('/subscribe', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
-app.get('/flipbook/:id', (req, res) => {
-  if (!req.session || !req.session.userId) {
-    res.sendFile(path.join(__dirname, 'public/visitor.html'));
-  } else {
-    res.sendFile(path.join(__dirname, 'public/flipbook.html'));
-  }
-});
+app.get('/signup', (req, res) => res.sendFile(path.join(__dirname, 'public/subscribe.html')));
 
 // ================= START SERVER =================
 app.listen(PORT, () => console.log(`Server running at ${BASE_URL}`));
