@@ -7,6 +7,12 @@ This was part of a freelancing project, i redesigned the website from wordpress 
 3. Brevo API
 4. Heyzine API
 
+# Demo Video
+
+
+https://github.com/user-attachments/assets/b1751935-6b9f-4705-8acd-ff8038397e1b
+
+
 
 # Project Structure
 
